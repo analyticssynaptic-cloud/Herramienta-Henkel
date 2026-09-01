@@ -625,6 +625,7 @@ const USO_MARCA = [ {v:'La usa actualmente',e:'🙋'}, {v:'La ha probado antes',
 const OPINION_PRODUCTOS = [ {v:1,e:'😞',l:'Muy mala'}, {v:2,e:'🙁',l:'Mala'}, {v:3,e:'😐',l:'Regular'}, {v:4,e:'😊',l:'Buena'}, {v:5,e:'🤩',l:'Excelente'} ];
 const PERCEPCION_PUNTO = [ {v:'No le gustó',e:'🙁'}, {v:'Ni fu ni fa',e:'😐'}, {v:'Le gustó',e:'🙂'}, {v:'Le encantó',e:'🤩'} ];
 const ATRIBUTOS_DESEADOS = [ {v:'Mejor precio',e:'💰'}, {v:'Mejor fragancia',e:'🌸'}, {v:'Mejor resultado',e:'✨'}, {v:'Empaque/presentación',e:'📦'}, {v:'Promociones y combos',e:'🎁'}, {v:'Mayor disponibilidad',e:'🛒'} ];
+const CANALES_CONOCIMIENTO = [ {v:'TV',e:'📺'}, {v:'Redes sociales',e:'📱'}, {v:'Revistas',e:'📖'}, {v:'Radio',e:'📻'}, {v:'Punto de venta',e:'🏬'}, {v:'Recomendación',e:'🗣️'}, {v:'Otro',e:'❔'} ];
 const TIPOS_CABELLO = ['Liso','Ondulado','Rizado','Afro','Teñido/Con color','Graso','Seco','Dañado'];
 const EDADES = ['18-25','26-35','36-45','46-55','56+'];
 const GENEROS = ['Femenino','Masculino','Prefiere no decir'];
@@ -1055,14 +1056,14 @@ function renderRedenciones(){
 }
 
 // ===== VOZ DEL CONSUMIDOR (encuesta completa por consumidor entrevistado) =====
-function agregarVoz(){ vozList.push({id:uid('voz'),tipoProductoPreferido:'',conoceMarca:'',usoMarca:'',opinionProductos:0,tipoCabello:'',atributosDeseados:[],atributosOtro:'',percepcionPunto:'',mejoraria:'',productoComentado:'',edad:'',genero:''}); renderVoz(); }
+function agregarVoz(){ vozList.push({id:uid('voz'),tipoProductoPreferido:'',conoceMarca:'',canalesConocimiento:[],canalOtro:'',usoMarca:'',opinionProductos:0,tipoCabello:'',atributosDeseados:[],atributosOtro:'',percepcionPunto:'',mejoraria:'',productoComentado:'',edad:'',genero:''}); renderVoz(); }
 function eliminarVoz(id){ vozList=vozList.filter(x=>x.id!==id); renderVoz(); }
-function setFldVoz(id,campo,v){ const p=vozList.find(x=>x.id===id); if(p) p[campo]=v; }
-function toggleAtributoVoz(id, valor, checked){
+function setFldVoz(id,campo,v){ const p=vozList.find(x=>x.id===id); if(p) p[campo]=v; if(campo==='conoceMarca') renderVoz(); }
+function toggleMultiVoz(id, campo, valor, checked){
   const p=vozList.find(x=>x.id===id); if(!p) return;
-  if(!Array.isArray(p.atributosDeseados)) p.atributosDeseados=[];
-  if(checked){ if(p.atributosDeseados.indexOf(valor)===-1) p.atributosDeseados.push(valor); }
-  else { p.atributosDeseados=p.atributosDeseados.filter(v=>v!==valor); }
+  if(!Array.isArray(p[campo])) p[campo]=[];
+  if(checked){ if(p[campo].indexOf(valor)===-1) p[campo].push(valor); }
+  else { p[campo]=p[campo].filter(v=>v!==valor); }
 }
 function renderVoz(){
   const cont=document.getElementById('listaVoz'); if(!cont) return; cont.innerHTML='';
@@ -1070,12 +1071,16 @@ function renderVoz(){
   vozList.forEach((p,idx)=>{ const d=document.createElement('div'); d.className='item'; d.innerHTML=`
     <div class="item-head"><div class="item-title"><svg class="icon icon-sm"><use href="#i-chat"/></svg>Consumidor ${idx+1}</div><button type="button" class="btn btn-danger btn-icon" onclick="eliminarVoz('${p.id}')"><svg class="icon icon-sm"><use href="#i-trash"/></svg></button></div>
     <div class="field"><label class="label label-req">¿Qué tipo de producto usa más?</label>${gruposEmoji('tipoProductoPreferido',p,TIPO_PRODUCTO_PREFERIDO)}</div>
-    <div class="field"><label class="label label-req">¿Conocía la marca GLISS?</label>${gruposEmoji('conoceMarca',p,CONOCE_MARCA)}</div>
+    <div class="field"><label class="label label-req">¿Ha escuchado o conoce la marca GLISS?</label>${gruposEmoji('conoceMarca',p,CONOCE_MARCA)}</div>
+    ${p.conoceMarca==='Sí la conocía' ? `<div class="field"><label class="label label-req">¿Por dónde la ha escuchado o visto? <span style="font-weight:400;color:var(--muted)">(varias)</span></label>
+      ${gruposMultiEmoji('canalesConocimiento',p,CANALES_CONOCIMIENTO)}
+      <input type="text" class="input" style="margin-top:9px" placeholder="Otro (opcional)" value="${escAttr(p.canalOtro)}" oninput="setFldVoz('${p.id}','canalOtro',this.value)">
+    </div>` : ''}
     <div class="field"><label class="label label-req">¿Ha usado productos de la marca?</label>${gruposEmoji('usoMarca',p,USO_MARCA)}</div>
     <div class="field"><label class="label label-req">¿Qué opinión tiene sobre los productos?</label>${gruposEmoji('opinionProductos',p,OPINION_PRODUCTOS)}</div>
     <div class="field"><label class="label">¿Cuál es su tipo de cabello? <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>${gruposOpcionSimple('tipoCabello',p,TIPOS_CABELLO)}</div>
     <div class="field"><label class="label">¿Qué le gustaría ver que la competencia no ofrece? <span style="font-weight:400;color:var(--muted)">(opcional, varias)</span></label>
-      ${gruposAtributosVoz(p)}
+      ${gruposMultiEmoji('atributosDeseados',p,ATRIBUTOS_DESEADOS)}
       <input type="text" class="input" style="margin-top:9px" placeholder="Otro (opcional)" value="${escAttr(p.atributosOtro)}" oninput="setFldVoz('${p.id}','atributosOtro',this.value)">
     </div>
     <div class="field"><label class="label label-req">Al probar/ver el producto en el punto, ¿cuál fue su percepción?</label>${gruposEmoji('percepcionPunto',p,PERCEPCION_PUNTO)}</div>
@@ -1103,12 +1108,12 @@ function gruposOpcionSimple(campo, p, opciones){
       <label for="${idSafe}">${escHtml(v)}</label></div>`;
   }).join('')}</div>`;
 }
-// Selección múltiple (varios atributos deseados a la vez)
-function gruposAtributosVoz(p){
-  const sel=p.atributosDeseados||[];
-  return `<div class="opt-grid emoji-grid">${ATRIBUTOS_DESEADOS.map(o=>{
-    const idSafe='voz-attr-'+p.id+'-'+o.v.replace(/[^a-zA-Z0-9]/g,'');
-    return `<div class="opt"><input type="checkbox" id="${idSafe}"${sel.indexOf(o.v)!==-1?' checked':''} onchange="toggleAtributoVoz('${p.id}','${escAttr(o.v)}',this.checked)">
+// Selección múltiple (varias opciones a la vez) - atributos deseados, canales de conocimiento, etc.
+function gruposMultiEmoji(campo, p, opciones){
+  const sel=p[campo]||[];
+  return `<div class="opt-grid emoji-grid">${opciones.map(o=>{
+    const idSafe='voz-'+campo+'-'+p.id+'-'+o.v.replace(/[^a-zA-Z0-9]/g,'');
+    return `<div class="opt"><input type="checkbox" id="${idSafe}"${sel.indexOf(o.v)!==-1?' checked':''} onchange="toggleMultiVoz('${p.id}','${campo}','${escAttr(o.v)}',this.checked)">
       <label for="${idSafe}"><span class="emoji-ic">${o.e}</span><span class="emoji-lbl">${o.v}</span></label></div>`;
   }).join('')}</div>`;
 }
@@ -1336,7 +1341,8 @@ function validarModulo(id){
   if(id==='voz'){
     vozList.forEach((p,i)=>{
       if(!p.tipoProductoPreferido) e.push('Tipo de producto preferido (consumidor '+(i+1)+')');
-      if(!p.conoceMarca) e.push('¿Conocía la marca? (consumidor '+(i+1)+')');
+      if(!p.conoceMarca) e.push('¿Ha escuchado la marca? (consumidor '+(i+1)+')');
+      if(p.conoceMarca==='Sí la conocía' && (!p.canalesConocimiento || p.canalesConocimiento.length===0)) e.push('¿Por dónde la ha escuchado? (consumidor '+(i+1)+')');
       if(!p.usoMarca) e.push('¿Ha usado la marca? (consumidor '+(i+1)+')');
       if(!p.opinionProductos) e.push('Opinión sobre los productos (consumidor '+(i+1)+')');
       if(!p.percepcionPunto) e.push('Percepción en el punto (consumidor '+(i+1)+')');
@@ -1372,7 +1378,7 @@ function recolectarGestion(){
     premiosRecibidos: premiosList.map(p=>({producto:p.producto,cantidad:p.cantidad})),
     premiosInventarioActual: premiosInventarioActual.map(it=>({producto:it.producto,cantidadActual:it.cantidadActual})),
     premiosObservaciones: val('premiosObservaciones'), fotoPremios: fotoPremios, fotoPremiosURL: fotoPremiosURL,
-    vozConsumidor: vozList.map(p=>({tipoProductoPreferido:p.tipoProductoPreferido,conoceMarca:p.conoceMarca,usoMarca:p.usoMarca,opinionProductos:p.opinionProductos,tipoCabello:p.tipoCabello,atributosDeseados:p.atributosDeseados||[],atributosOtro:p.atributosOtro,percepcionPunto:p.percepcionPunto,mejoraria:p.mejoraria,productoComentado:p.productoComentado,edad:p.edad,genero:p.genero})),
+    vozConsumidor: vozList.map(p=>({tipoProductoPreferido:p.tipoProductoPreferido,conoceMarca:p.conoceMarca,canalesConocimiento:p.canalesConocimiento||[],canalOtro:p.canalOtro,usoMarca:p.usoMarca,opinionProductos:p.opinionProductos,tipoCabello:p.tipoCabello,atributosDeseados:p.atributosDeseados||[],atributosOtro:p.atributosOtro,percepcionPunto:p.percepcionPunto,mejoraria:p.mejoraria,productoComentado:p.productoComentado,edad:p.edad,genero:p.genero})),
     redencionesRealizadas: redencionesList.map(p=>({producto:p.producto,cantidad:p.cantidad,beneficiario:p.beneficiario})),
     redencionesObservaciones: val('redencionesObservaciones'), fotoRedencion: fotoRedencion, fotoRedencionURL: fotoRedencionURL,
     competenciaHayActividad: (document.querySelector('input[name="competenciaHayActividad"]:checked')||{}).value||'',
@@ -1433,9 +1439,11 @@ function renderResumen(){
   const vozH = vozList.length ? vozList.map((p,i)=>{
     const op=OPINION_PRODUCTOS.find(o=>String(o.v)===String(p.opinionProductos));
     const atributos=[...(p.atributosDeseados||[]), p.atributosOtro].filter(Boolean).join(', ');
+    const canales=[...(p.canalesConocimiento||[]), p.canalOtro].filter(Boolean).join(', ');
     return '<div style="padding:7px 0;border-bottom:1px solid var(--line)">'+
       '<div class="res-mini"><b>Consumidor '+(i+1)+'</b></div>'+
-      '<div class="res-mini">Producto preferido: '+(escHtml(p.tipoProductoPreferido)||'—')+' · ¿Conocía la marca?: '+(escHtml(p.conoceMarca)||'—')+'</div>'+
+      '<div class="res-mini">Producto preferido: '+(escHtml(p.tipoProductoPreferido)||'—')+' · ¿Ha escuchado la marca?: '+(escHtml(p.conoceMarca)||'—')+'</div>'+
+      (canales?'<div class="res-mini">Por dónde: '+escHtml(canales)+'</div>':'')+
       '<div class="res-mini">¿La ha usado?: '+(escHtml(p.usoMarca)||'—')+' · Opinión: '+(op?op.e+' '+op.l:'—')+'</div>'+
       (p.tipoCabello?'<div class="res-mini">Tipo de cabello: '+escHtml(p.tipoCabello)+'</div>':'')+
       (atributos?'<div class="res-mini">Le gustaría ver: '+escHtml(atributos)+'</div>':'')+
@@ -1485,9 +1493,11 @@ function generarTextoGestion(){
     vozList.forEach((p,i)=>{
       const op=OPINION_PRODUCTOS.find(o=>String(o.v)===String(p.opinionProductos));
       const atributos=[...(p.atributosDeseados||[]), p.atributosOtro].filter(Boolean).join(', ');
+      const canales=[...(p.canalesConocimiento||[]), p.canalOtro].filter(Boolean).join(', ');
       t+='   ▸ Consumidor '+(i+1)+':\n';
       t+='      • Producto preferido: '+(p.tipoProductoPreferido||'-')+'\n';
-      t+='      • ¿Conocía la marca?: '+(p.conoceMarca||'-')+'\n';
+      t+='      • ¿Ha escuchado la marca?: '+(p.conoceMarca||'-')+'\n';
+      if(canales) t+='      • Por dónde: '+canales+'\n';
       t+='      • ¿La ha usado?: '+(p.usoMarca||'-')+'\n';
       t+='      • Opinión sobre los productos: '+(op?op.e+' '+op.l:'-')+'\n';
       if(p.tipoCabello) t+='      • Tipo de cabello: '+p.tipoCabello+'\n';
