@@ -1,0 +1,768 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Captura Henkel GLISS</title>
+<style>
+  :root{
+    --rojo:#E1000F;
+    --rojo-oscuro:#a80000;
+    --tinta:#1a1a1a;
+    --gris-txt:#5b5b5f;
+    --fondo:#f3f3f4;
+    --card:#ffffff;
+    --borde:#e3e3e6;
+    --exito:#1b8a4c;
+    --exito-bg:#e9f7ef;
+    --alerta:#b3820c;
+    --alerta-bg:#fbf2e0;
+    --sombra:0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--fondo); color:var(--tinta); -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:560px; margin:0 auto; padding:0 0 100px;}
+  header.top{
+    background:var(--rojo); color:#fff; padding:16px 18px 14px; position:sticky; top:0; z-index:20;
+    box-shadow:var(--sombra);
+  }
+  header.top h1{margin:0; font-size:17px; font-weight:700; letter-spacing:.2px;}
+  header.top p{margin:2px 0 0; font-size:12px; opacity:.9;}
+  .progreso{display:flex; gap:5px; margin-top:12px; overflow-x:auto; padding-bottom:2px;}
+  .chip{
+    flex:0 0 auto; font-size:11px; padding:5px 9px; border-radius:999px; background:rgba(255,255,255,.18);
+    color:#fff; white-space:nowrap; display:flex; align-items:center; gap:4px; border:1px solid rgba(255,255,255,.3);
+  }
+  .chip.ok{background:#fff; color:var(--rojo); font-weight:700; border-color:#fff;}
+  .chip .n{opacity:.85;}
+
+  section.modulo{
+    background:var(--card); margin:14px; border-radius:14px; box-shadow:var(--sombra); overflow:hidden;
+    border:1px solid var(--borde);
+  }
+  section.modulo.bloqueado{opacity:.55;}
+  .mod-head{
+    padding:14px 16px; display:flex; align-items:center; justify-content:space-between; cursor:pointer;
+  }
+  .mod-head .titulo{display:flex; align-items:center; gap:10px;}
+  .mod-head .num{
+    width:26px; height:26px; border-radius:50%; background:var(--fondo); color:var(--gris-txt);
+    display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex:0 0 auto;
+  }
+  section.modulo.guardado .mod-head .num{background:var(--exito); color:#fff;}
+  .mod-head h2{font-size:15px; margin:0;}
+  .mod-head .sub{font-size:11px; color:var(--gris-txt); margin-top:1px;}
+  .mod-head .flecha{transition:transform .2s; color:var(--gris-txt);}
+  section.modulo.abierto .mod-head .flecha{transform:rotate(180deg);}
+  .mod-body{display:none; padding:0 16px 18px;}
+  section.modulo.abierto .mod-body{display:block;}
+
+  label{display:block; font-size:12.5px; font-weight:600; margin:12px 0 5px; color:var(--gris-txt);}
+  label.req::after{content:" *"; color:var(--rojo);}
+  input[type=text], input[type=tel], input[type=number], input[type=date], input[type=time], select, textarea{
+    width:100%; padding:11px 12px; border:1px solid var(--borde); border-radius:9px; font-size:14.5px;
+    background:#fff; color:var(--tinta); font-family:inherit;
+  }
+  textarea{resize:vertical; min-height:70px;}
+  input:focus, select:focus, textarea:focus{outline:2px solid var(--rojo); outline-offset:-1px;}
+
+  .fila-radio{display:flex; gap:8px; margin-top:2px;}
+  .fila-radio label.opt{
+    flex:1; text-align:center; padding:10px 8px; border:1px solid var(--borde); border-radius:9px;
+    font-size:13.5px; font-weight:600; color:var(--gris-txt); margin:0; cursor:pointer;
+  }
+  .fila-radio input{display:none;}
+  .fila-radio input:checked + label.opt{background:var(--rojo); color:#fff; border-color:var(--rojo);}
+
+  .foto-box{
+    margin-top:6px; border:1.5px dashed var(--borde); border-radius:10px; padding:14px; text-align:center;
+    background:var(--fondo); position:relative;
+  }
+  .foto-box img{max-width:100%; max-height:220px; border-radius:8px; display:block; margin:0 auto 8px;}
+  .foto-box .btn-foto{
+    display:inline-flex; align-items:center; gap:6px; background:#fff; border:1px solid var(--borde);
+    padding:9px 14px; border-radius:8px; font-size:13px; font-weight:600; color:var(--tinta); cursor:pointer;
+  }
+  .foto-box input[type=file]{display:none;}
+
+  .lista-din{margin-top:8px; display:flex; flex-direction:column; gap:8px;}
+  .fila-din{display:flex; gap:6px; align-items:center;}
+  .fila-din select{flex:1.3;}
+  .fila-din input[type=number]{flex:.6; text-align:center;}
+  .fila-din input[type=text]{flex:.8;}
+  .fila-din .quitar{
+    flex:0 0 auto; width:34px; height:34px; border-radius:8px; border:1px solid var(--borde); background:#fff;
+    color:var(--rojo); font-size:18px; line-height:1; cursor:pointer;
+  }
+  .btn-agregar{
+    margin-top:8px; width:100%; padding:10px; border:1px dashed var(--gris-txt); border-radius:9px;
+    background:transparent; color:var(--gris-txt); font-weight:600; font-size:13px; cursor:pointer;
+  }
+
+  .btn-guardar{
+    width:100%; margin-top:16px; padding:13px; background:var(--rojo); color:#fff; border:none;
+    border-radius:10px; font-size:14.5px; font-weight:700; cursor:pointer;
+  }
+  .btn-guardar:active{background:var(--rojo-oscuro);}
+  .btn-guardar:disabled{background:#c7c7c9; cursor:not-allowed;}
+  .btn-secundario{
+    width:100%; margin-top:8px; padding:11px; background:#fff; color:var(--tinta); border:1px solid var(--borde);
+    border-radius:10px; font-size:13.5px; font-weight:600; cursor:pointer;
+  }
+
+  .badge-guardado{
+    display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; color:var(--exito);
+    background:var(--exito-bg); padding:4px 9px; border-radius:999px; margin-top:10px;
+  }
+  .nota{font-size:11.5px; color:var(--gris-txt); margin-top:6px; line-height:1.4;}
+
+  .aviso-bloqueo{
+    display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--alerta); background:var(--alerta-bg);
+    padding:9px 12px; border-radius:8px; margin:0 16px 14px;
+  }
+
+  .barra-recuperar{
+    margin:14px 14px 0; background:#fff; border:1px solid var(--borde); border-radius:10px; padding:10px 12px;
+    display:flex; gap:8px; align-items:center; font-size:12.5px;
+  }
+  .barra-recuperar input{flex:1; padding:8px 10px; font-size:13px;}
+  .barra-recuperar button{
+    flex:0 0 auto; background:var(--tinta); color:#fff; border:none; border-radius:7px; padding:8px 12px;
+    font-size:12.5px; font-weight:600; cursor:pointer;
+  }
+
+  #toast{
+    position:fixed; left:50%; bottom:20px; transform:translateX(-50%) translateY(120%); background:var(--tinta);
+    color:#fff; padding:11px 18px; border-radius:14px; font-size:13px; box-shadow:var(--sombra); z-index:50;
+    transition:transform .25s; max-width:88vw; width:max-content; text-align:center; line-height:1.4;
+  }
+  #toast.mostrar{transform:translateX(-50%) translateY(0);}
+  #toast.error{background:var(--rojo);}
+
+  .id-sesion{
+    text-align:center; font-size:11px; color:var(--gris-txt); padding:14px; word-break:break-all;
+  }
+  .id-sesion b{color:var(--tinta);}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Captura Henkel GLISS</h1>
+    <p id="subtitulo">Ejecución en punto de venta</p>
+    <div class="progreso" id="progreso"></div>
+  </header>
+
+  <div class="barra-recuperar">
+    <span>¿Visita en curso?</span>
+    <input type="text" id="inputCodigoRecuperar" placeholder="Código, ej. HKN-2026...">
+    <button id="btnRecuperar">Recuperar</button>
+  </div>
+
+  <div id="contenedorModulos"></div>
+
+  <p class="id-sesion" id="idSesion"></p>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+ * CONFIGURACIÓN — pega aquí la URL del Web App de Apps Script
+ * (Implementar > Nueva implementación > Aplicación web > Acceso: Cualquier usuario)
+ * ============================================================ */
+const API_URL = 'https://script.google.com/macros/s/AKfycbyU6b-PvS8t8ATuCEEYucfFV7wsz4XyDTkHjeB7Mts75XMkbLWyZWO-1yYqPvhftiZXwA/exec';
+
+/* ============================================================
+ * ESTADO
+ * ============================================================ */
+let PARAM = { pdvs: [], pdvCiudad: {}, pdvsPorCiudad: {}, usuarios: [], skus: [], premios: [] };
+let gestion = cargarLocal() || { modulosGuardadosSet: [] };
+
+const MODULOS = [
+  { id: 'ingreso',      titulo: 'Ingreso',            sub: 'Obligatorio para iniciar la visita', requiereIngreso: false },
+  { id: 'cobertura',    titulo: 'Cobertura',          sub: 'Disponibilidad de portafolio GLISS',  requiereIngreso: true },
+  { id: 'ventas',       titulo: 'Ventas',              sub: 'Venta directa en el punto',           requiereIngreso: true },
+  { id: 'premios',      titulo: 'Premios',            sub: 'Inventario de premios que llega/se carga', requiereIngreso: true },
+  { id: 'voz',          titulo: 'Voz del Consumidor', sub: 'Comentarios y percepción',            requiereIngreso: true },
+  { id: 'redenciones',  titulo: 'Redenciones',        sub: 'Premios entregados a consumidores',   requiereIngreso: true },
+  { id: 'materiales',   titulo: 'Materiales',         sub: 'POP / exhibición instalada',          requiereIngreso: true },
+  { id: 'salida',       titulo: 'Salida',             sub: 'Cierre de la visita',                 requiereIngreso: true }
+];
+
+let moduloAbierto = 'ingreso';
+
+/* ============================================================
+ * ARRANQUE
+ * ============================================================ */
+document.addEventListener('DOMContentLoaded', init);
+
+async function init() {
+  render();
+  await cargarParametrizacion();
+  render();
+  document.getElementById('btnRecuperar').addEventListener('click', recuperarPorCodigo);
+}
+
+async function cargarParametrizacion() {
+  try {
+    const r = await fetch(API_URL + '?action=parametrizacion');
+    const d = await r.json();
+    if (d.success) {
+      PARAM = d;
+    } else {
+      toast('No se pudo cargar la parametrización: ' + (d.error || ''), true);
+    }
+  } catch (e) {
+    toast('Sin conexión con el servidor. Verifica la URL del Web App.', true);
+  }
+}
+
+/* ============================================================
+ * RENDER PRINCIPAL
+ * ============================================================ */
+function render() {
+  renderProgreso();
+  const cont = document.getElementById('contenedorModulos');
+  cont.innerHTML = '';
+  MODULOS.forEach(m => cont.appendChild(renderModulo(m)));
+  document.getElementById('idSesion').innerHTML = gestion.registroId
+    ? `Código de esta visita: <b>${gestion.registroId}</b> — guárdalo por si necesitas continuarla luego.`
+    : 'Aún no se ha guardado el Ingreso: esta visita todavía no tiene código.';
+}
+
+function renderProgreso() {
+  const cont = document.getElementById('progreso');
+  cont.innerHTML = '';
+  MODULOS.forEach((m, i) => {
+    const guardado = moduloGuardado(m.id);
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (guardado ? ' ok' : '');
+    chip.innerHTML = `<span class="n">${i + 1}</span> ${m.titulo}${guardado ? ' ✓' : ''}`;
+    cont.appendChild(chip);
+  });
+}
+
+function moduloGuardado(id) {
+  return (gestion.modulosGuardadosSet || []).indexOf(id) !== -1;
+}
+
+function renderModulo(m) {
+  const bloqueado = m.requiereIngreso && !gestion.registroId;
+  const abierto = moduloAbierto === m.id;
+  const guardado = moduloGuardado(m.id);
+
+  const sec = document.createElement('section');
+  sec.className = 'modulo' + (bloqueado ? ' bloqueado' : '') + (abierto ? ' abierto' : '') + (guardado ? ' guardado' : '');
+  sec.id = 'mod-' + m.id;
+
+  const head = document.createElement('div');
+  head.className = 'mod-head';
+  head.innerHTML = `
+    <div class="titulo">
+      <div class="num">${guardado ? '✓' : MODULOS.indexOf(m) + 1}</div>
+      <div>
+        <h2>${m.titulo}</h2>
+        <div class="sub">${m.sub}</div>
+      </div>
+    </div>
+    <div class="flecha">▾</div>`;
+  head.addEventListener('click', () => {
+    if (bloqueado) { toast('Primero guarda el módulo Ingreso con la foto.', true); return; }
+    moduloAbierto = abierto ? null : m.id;
+    render();
+  });
+  sec.appendChild(head);
+
+  if (bloqueado) {
+    const aviso = document.createElement('div');
+    aviso.className = 'nota';
+    aviso.style.padding = '0 16px 14px';
+    aviso.textContent = 'Bloqueado hasta guardar el Ingreso.';
+    sec.appendChild(aviso);
+    return sec;
+  }
+
+  const body = document.createElement('div');
+  body.className = 'mod-body';
+  body.appendChild(construirFormulario(m.id));
+  sec.appendChild(body);
+  return sec;
+}
+
+/* ============================================================
+ * FORMULARIOS POR MÓDULO
+ * ============================================================ */
+function construirFormulario(id) {
+  const f = document.createElement('div');
+  switch (id) {
+    case 'ingreso': f.appendChild(formIngreso()); break;
+    case 'cobertura': f.appendChild(formCobertura()); break;
+    case 'ventas': f.appendChild(formVentas()); break;
+    case 'premios': f.appendChild(formPremios()); break;
+    case 'voz': f.appendChild(formVoz()); break;
+    case 'redenciones': f.appendChild(formRedenciones()); break;
+    case 'materiales': f.appendChild(formMateriales()); break;
+    case 'salida': f.appendChild(formSalida()); break;
+  }
+  return f;
+}
+
+// ---------- INGRESO ----------
+function formIngreso() {
+  const c = document.createElement('div');
+
+  c.appendChild(campoTexto('Documento del asesor', 'asesorDocumento', gestion.asesorDocumento, true, 'tel', (v) => {
+    const u = PARAM.usuarios.find(u => u.documento === v.trim());
+    if (u) {
+      gestion.asesorNombre = u.nombre;
+      gestion.asesorTelefono = u.telefono;
+      guardarLocal();
+      render();
+      moduloAbierto = 'ingreso';
+      render();
+    }
+  }));
+  c.appendChild(campoTexto('Nombre del asesor', 'asesorNombre', gestion.asesorNombre, true));
+  c.appendChild(campoTexto('Teléfono', 'asesorTelefono', gestion.asesorTelefono, false, 'tel'));
+
+  c.appendChild(campoSelect('Ciudad', 'ciudad', Object.keys(PARAM.pdvsPorCiudad || {}), gestion.ciudad, true, (v) => {
+    gestion.puntoVenta = '';
+    guardarLocal();
+    moduloAbierto = 'ingreso';
+    render();
+  }));
+
+  const opcionesPDV = gestion.ciudad ? (PARAM.pdvsPorCiudad[gestion.ciudad] || []) : PARAM.pdvs;
+  c.appendChild(campoSelect('Punto de venta', 'puntoVenta', opcionesPDV, gestion.puntoVenta, true));
+
+  c.appendChild(campoUbicacion());
+  c.appendChild(campoFoto('Foto de ingreso al punto', 'fotoIngreso', 'fotoIngresoURL', true));
+
+  c.appendChild(botonGuardar('ingreso', validarIngreso));
+  return c;
+}
+
+function validarIngreso() {
+  if (!gestion.asesorNombre || !gestion.asesorDocumento) return 'El nombre y documento del asesor son obligatorios';
+  if (!gestion.puntoVenta) return 'Selecciona el punto de venta';
+  if (!gestion.fotoIngreso && !gestion.fotoIngresoURL) return 'La foto de ingreso es obligatoria';
+  return null;
+}
+
+function campoUbicacion() {
+  const c = document.createElement('div');
+  c.innerHTML = `<label>Ubicación GPS</label>`;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn-secundario';
+  btn.textContent = gestion.latitud ? `📍 Capturada (±${Math.round(gestion.precisionGPS || 0)}m) — volver a capturar` : '📍 Capturar ubicación actual';
+  btn.addEventListener('click', () => {
+    if (!navigator.geolocation) { toast('Tu navegador no soporta geolocalización', true); return; }
+    btn.textContent = 'Obteniendo ubicación...';
+    navigator.geolocation.getCurrentPosition((pos) => {
+      gestion.latitud = pos.coords.latitude;
+      gestion.longitud = pos.coords.longitude;
+      gestion.precisionGPS = pos.coords.accuracy;
+      guardarLocal();
+      moduloAbierto = 'ingreso';
+      render();
+      toast('Ubicación capturada');
+    }, (err) => {
+      toast('No se pudo obtener la ubicación: ' + err.message, true);
+      btn.textContent = '📍 Capturar ubicación actual';
+    }, { enableHighAccuracy: true, timeout: 10000 });
+  });
+  c.appendChild(btn);
+  return c;
+}
+
+// ---------- COBERTURA ----------
+function formCobertura() {
+  const c = document.createElement('div');
+  if (!gestion.coberturaProductos || gestion.coberturaProductos.length !== PARAM.skus.length) {
+    gestion.coberturaProductos = PARAM.skus.map(p => {
+      const existente = (gestion.coberturaProductos || []).find(x => x.producto === p);
+      return existente || { producto: p, disponible: null };
+    });
+  }
+  c.innerHTML = `<label>Disponibilidad del portafolio en el punto</label>`;
+  const tabla = document.createElement('div');
+  tabla.className = 'lista-din';
+  gestion.coberturaProductos.forEach((item) => {
+    const fila = document.createElement('div');
+    fila.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--borde);';
+    fila.innerHTML = `<span style="font-size:12.5px;flex:1;">${item.producto}</span>`;
+    const radios = document.createElement('div');
+    radios.className = 'fila-radio';
+    radios.style.cssText = 'flex:0 0 auto; width:140px;';
+    ['Sí', 'No'].forEach(op => {
+      const val = op === 'Sí';
+      const idr = 'cov_' + item.producto.replace(/\W/g, '') + '_' + op;
+      const inp = document.createElement('input');
+      inp.type = 'radio'; inp.name = 'cov_' + item.producto; inp.id = idr; inp.checked = item.disponible === val;
+      inp.addEventListener('change', () => { item.disponible = val; guardarLocal(); });
+      const lab = document.createElement('label');
+      lab.className = 'opt'; lab.htmlFor = idr; lab.textContent = op;
+      radios.appendChild(inp); radios.appendChild(lab);
+    });
+    fila.appendChild(radios);
+    tabla.appendChild(fila);
+  });
+  c.appendChild(tabla);
+  c.appendChild(campoTextarea('Observaciones de cobertura', 'coberturaObservaciones', gestion.coberturaObservaciones));
+  c.appendChild(campoFoto('Foto de exhibición', 'fotoCobertura', 'fotoCoberturaURL', false));
+  c.appendChild(botonGuardar('cobertura', () => null));
+  return c;
+}
+
+// ---------- VENTAS ----------
+function formVentas() {
+  const c = document.createElement('div');
+  c.appendChild(campoRadioSiNo('¿Se realizó venta en esta visita?', 'ventaRealizada'));
+  if (gestion.ventaRealizada === false) {
+    c.appendChild(campoTexto('Motivo por el que no se vendió', 'ventaMotivoNo', gestion.ventaMotivoNo, false));
+  } else if (gestion.ventaRealizada === true) {
+    c.appendChild(listaDinamica('Productos vendidos', 'ventaProductos', PARAM.skus, 'producto', 'cantidad'));
+  }
+  c.appendChild(botonGuardar('ventas', () => {
+    if (gestion.ventaRealizada === null || gestion.ventaRealizada === undefined) return '¿Se realizó venta? Selecciona Sí o No';
+    if (gestion.ventaRealizada === false && !gestion.ventaMotivoNo) return 'Indica el motivo por el que no se vendió';
+    if (gestion.ventaRealizada === true && (!gestion.ventaProductos || !gestion.ventaProductos.length)) return 'Agrega al menos un producto vendido';
+    return null;
+  }));
+  return c;
+}
+
+// ---------- PREMIOS ----------
+function formPremios() {
+  const c = document.createElement('div');
+  c.innerHTML = `<p class="nota" style="margin-top:0;">Registra lo que llega / se carga como inventario de premios en el punto (lo que llegue es lo que debe cargarse).</p>`;
+  c.appendChild(listaDinamica('Premios recibidos', 'premiosRecibidos', PARAM.premios, 'premio', 'cantidad'));
+  c.appendChild(campoTextarea('Observaciones', 'premiosObservaciones', gestion.premiosObservaciones));
+  c.appendChild(campoFoto('Foto del inventario de premios', 'fotoPremios', 'fotoPremiosURL', false));
+  c.appendChild(botonGuardar('premios', () => null));
+  return c;
+}
+
+// ---------- VOZ DEL CONSUMIDOR ----------
+function formVoz() {
+  const c = document.createElement('div');
+  c.appendChild(campoTextarea('Comentarios / percepción del consumidor', 'vozConsumidor', gestion.vozConsumidor, true));
+  c.appendChild(botonGuardar('voz', () => (!gestion.vozConsumidor ? 'Registra al menos un comentario' : null)));
+  return c;
+}
+
+// ---------- REDENCIONES ----------
+function formRedenciones() {
+  const c = document.createElement('div');
+  c.innerHTML = `<p class="nota" style="margin-top:0;">Registra lo que efectivamente se entregó / canjeó a los consumidores.</p>`;
+  c.appendChild(listaDinamica('Premios entregados', 'redencionesRealizadas', PARAM.premios, 'premio', 'cantidad', true));
+  c.appendChild(campoTextarea('Observaciones', 'redencionesObservaciones', gestion.redencionesObservaciones));
+  c.appendChild(campoFoto('Foto de la redención', 'fotoRedencion', 'fotoRedencionURL', false));
+  c.appendChild(botonGuardar('redenciones', () => null));
+  return c;
+}
+
+// ---------- MATERIALES ----------
+const TIPOS_MATERIAL = ['Exhibidor', 'Afiche', 'Isla', 'Habladores', 'Cenefa', 'Otro'];
+function formMateriales() {
+  const c = document.createElement('div');
+  c.appendChild(listaDinamica('Materiales POP colocados', 'materialesColocados', TIPOS_MATERIAL, 'tipo', 'cantidad'));
+  c.appendChild(campoTextarea('Observaciones', 'materialesObservaciones', gestion.materialesObservaciones));
+  c.appendChild(campoFoto('Foto de materiales instalados', 'fotoMaterial', 'fotoMaterialURL', false));
+  c.appendChild(botonGuardar('materiales', () => null));
+  return c;
+}
+
+// ---------- SALIDA ----------
+function formSalida() {
+  const c = document.createElement('div');
+  if (!gestion.horaSalidaPDV) {
+    const ahora = new Date();
+    gestion.horaSalidaPDV = ahora.toTimeString().slice(0, 5);
+  }
+  c.appendChild(campoTexto('Hora de salida', 'horaSalidaPDV', gestion.horaSalidaPDV, false, 'time'));
+  c.appendChild(campoTexto('Próxima visita programada', 'proximaVisita', gestion.proximaVisita, false, 'date'));
+  c.appendChild(campoTextarea('Observaciones generales de la visita', 'observacionesGenerales', gestion.observacionesGenerales));
+  c.appendChild(botonGuardar('salida', () => null, 'Finalizar visita'));
+  return c;
+}
+
+/* ============================================================
+ * CAMPOS REUTILIZABLES
+ * ============================================================ */
+function campoTexto(etiqueta, clave, valor, requerido, tipo, onBlur) {
+  const c = document.createElement('div');
+  const lab = document.createElement('label');
+  lab.className = requerido ? 'req' : '';
+  lab.textContent = etiqueta;
+  const inp = document.createElement('input');
+  inp.type = tipo || 'text';
+  inp.value = valor || '';
+  inp.addEventListener('input', () => { gestion[clave] = inp.value; guardarLocal(); });
+  if (onBlur) inp.addEventListener('blur', () => onBlur(inp.value));
+  c.appendChild(lab); c.appendChild(inp);
+  return c;
+}
+
+function campoTextarea(etiqueta, clave, valor, requerido) {
+  const c = document.createElement('div');
+  const lab = document.createElement('label');
+  lab.className = requerido ? 'req' : '';
+  lab.textContent = etiqueta;
+  const ta = document.createElement('textarea');
+  ta.value = valor || '';
+  ta.addEventListener('input', () => { gestion[clave] = ta.value; guardarLocal(); });
+  c.appendChild(lab); c.appendChild(ta);
+  return c;
+}
+
+function campoSelect(etiqueta, clave, opciones, valor, requerido, onChange) {
+  const c = document.createElement('div');
+  const lab = document.createElement('label');
+  lab.className = requerido ? 'req' : '';
+  lab.textContent = etiqueta;
+  const sel = document.createElement('select');
+  sel.innerHTML = '<option value="">Selecciona...</option>' + (opciones || []).map(o => `<option value="${o}" ${o === valor ? 'selected' : ''}>${o}</option>`).join('');
+  sel.addEventListener('change', () => { gestion[clave] = sel.value; guardarLocal(); if (onChange) onChange(sel.value); });
+  c.appendChild(lab); c.appendChild(sel);
+  return c;
+}
+
+function campoRadioSiNo(etiqueta, clave) {
+  const c = document.createElement('div');
+  const lab = document.createElement('label');
+  lab.textContent = etiqueta;
+  const fila = document.createElement('div');
+  fila.className = 'fila-radio';
+  [['Sí', true], ['No', false]].forEach(([texto, val]) => {
+    const id = clave + '_' + texto;
+    const inp = document.createElement('input');
+    inp.type = 'radio'; inp.name = clave; inp.id = id; inp.checked = gestion[clave] === val;
+    inp.addEventListener('change', () => { gestion[clave] = val; guardarLocal(); moduloAbierto = moduloAbierto; render(); });
+    const l = document.createElement('label');
+    l.className = 'opt'; l.htmlFor = id; l.textContent = texto;
+    fila.appendChild(inp); fila.appendChild(l);
+  });
+  c.appendChild(lab); c.appendChild(fila);
+  return c;
+}
+
+function campoFoto(etiqueta, claveBase64, claveURL, requerido) {
+  const c = document.createElement('div');
+  const lab = document.createElement('label');
+  lab.className = requerido ? 'req' : '';
+  lab.textContent = etiqueta;
+  c.appendChild(lab);
+
+  const box = document.createElement('div');
+  box.className = 'foto-box';
+  const previa = gestion[claveBase64] || gestion[claveURL];
+  if (previa) {
+    const img = document.createElement('img');
+    img.src = previa;
+    box.appendChild(img);
+  }
+  const btnLabel = document.createElement('label');
+  btnLabel.className = 'btn-foto';
+  btnLabel.textContent = previa ? '📷 Cambiar foto' : '📷 Tomar / subir foto';
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
+  input.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    toast('Procesando foto...');
+    const dataUrl = await comprimirImagen(file);
+    gestion[claveBase64] = dataUrl;
+    gestion[claveURL] = '';
+    guardarLocal();
+    render();
+    toast('Foto lista');
+  });
+  btnLabel.appendChild(input);
+  box.appendChild(btnLabel);
+  c.appendChild(box);
+  return c;
+}
+
+function listaDinamica(etiqueta, clave, opciones, campoNombre, campoCantidad, conBeneficiario) {
+  const c = document.createElement('div');
+  const lab = document.createElement('label');
+  lab.textContent = etiqueta;
+  c.appendChild(lab);
+
+  if (!gestion[clave]) gestion[clave] = [];
+  const cont = document.createElement('div');
+  cont.className = 'lista-din';
+
+  gestion[clave].forEach((item, idx) => {
+    const fila = document.createElement('div');
+    fila.className = 'fila-din';
+
+    const sel = document.createElement('select');
+    sel.innerHTML = '<option value="">Selecciona...</option>' + opciones.map(o => `<option value="${o}" ${o === item[campoNombre] ? 'selected' : ''}>${o}</option>`).join('');
+    sel.addEventListener('change', () => { item[campoNombre] = sel.value; guardarLocal(); });
+    fila.appendChild(sel);
+
+    const cant = document.createElement('input');
+    cant.type = 'number'; cant.min = '1'; cant.placeholder = 'Cant.';
+    cant.value = item[campoCantidad] || '';
+    cant.addEventListener('input', () => { item[campoCantidad] = cant.value; guardarLocal(); });
+    fila.appendChild(cant);
+
+    if (conBeneficiario) {
+      const ben = document.createElement('input');
+      ben.type = 'text'; ben.placeholder = 'Beneficiario (opc.)';
+      ben.value = item.beneficiario || '';
+      ben.addEventListener('input', () => { item.beneficiario = ben.value; guardarLocal(); });
+      fila.appendChild(ben);
+    }
+
+    const btnQuitar = document.createElement('button');
+    btnQuitar.type = 'button'; btnQuitar.className = 'quitar'; btnQuitar.textContent = '×';
+    btnQuitar.addEventListener('click', () => { gestion[clave].splice(idx, 1); guardarLocal(); render(); });
+    fila.appendChild(btnQuitar);
+
+    cont.appendChild(fila);
+  });
+  c.appendChild(cont);
+
+  const btnAgregar = document.createElement('button');
+  btnAgregar.type = 'button'; btnAgregar.className = 'btn-agregar'; btnAgregar.textContent = '+ Agregar';
+  btnAgregar.addEventListener('click', () => {
+    const nuevo = {}; nuevo[campoNombre] = ''; nuevo[campoCantidad] = '';
+    gestion[clave].push(nuevo);
+    guardarLocal(); render();
+  });
+  c.appendChild(btnAgregar);
+  return c;
+}
+
+function botonGuardar(moduloId, validar, texto) {
+  const cont = document.createElement('div');
+  const btn = document.createElement('button');
+  btn.className = 'btn-guardar';
+  btn.textContent = texto || 'Guardar ' + MODULOS.find(m => m.id === moduloId).titulo;
+  btn.addEventListener('click', () => guardarModulo(moduloId, validar, btn));
+  cont.appendChild(btn);
+  if (moduloGuardado(moduloId)) {
+    const badge = document.createElement('div');
+    badge.className = 'badge-guardado';
+    badge.textContent = '✓ Guardado';
+    cont.appendChild(badge);
+  }
+  return cont;
+}
+
+/* ============================================================
+ * GUARDADO
+ * ============================================================ */
+async function guardarModulo(moduloId, validar, btn) {
+  const error = validar ? validar() : null;
+  if (error) { toast(error, true); return; }
+
+  if (API_URL.indexOf('PEGA_AQUI') !== -1) {
+    toast('Falta configurar API_URL en el código con la URL del Web App', true);
+    return;
+  }
+
+  btn.disabled = true;
+  const textoOriginal = btn.textContent;
+  btn.textContent = 'Guardando...';
+
+  try {
+    const body = { registroId: gestion.registroId || '', modulo: moduloId, gestion: gestion };
+    const r = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (!d.success) {
+      toast(d.error || 'No se pudo guardar', true);
+      btn.disabled = false; btn.textContent = textoOriginal;
+      return;
+    }
+    gestion.registroId = d.registroId;
+    if (d.fotoIngresoURL) { gestion.fotoIngresoURL = d.fotoIngresoURL; gestion.fotoIngreso = ''; }
+    if (d.ubicacionURL) gestion.ubicacionURL = d.ubicacionURL;
+    if (!gestion.modulosGuardadosSet) gestion.modulosGuardadosSet = [];
+    if (gestion.modulosGuardadosSet.indexOf(moduloId) === -1) gestion.modulosGuardadosSet.push(moduloId);
+    gestion.modulosGuardados = gestion.modulosGuardadosSet.join(', ');
+    guardarLocal();
+    toast('Guardado correctamente');
+    render();
+  } catch (e) {
+    toast('Error de conexión al guardar', true);
+    btn.disabled = false; btn.textContent = textoOriginal;
+  }
+}
+
+/* ============================================================
+ * RECUPERAR SESIÓN
+ * ============================================================ */
+async function recuperarPorCodigo() {
+  const codigo = document.getElementById('inputCodigoRecuperar').value.trim();
+  if (!codigo) { toast('Escribe el código de la visita', true); return; }
+  toast('Buscando visita...');
+  try {
+    const r = await fetch(API_URL + '?action=recuperar&registroId=' + encodeURIComponent(codigo));
+    const d = await r.json();
+    if (!d.success) { toast(d.error || 'No se encontró la visita', true); return; }
+    gestion = d.gestion;
+    gestion.registroId = d.registroId;
+    if (!gestion.modulosGuardadosSet) {
+      gestion.modulosGuardadosSet = (gestion.modulosGuardados || '').split(',').map(s => s.trim()).filter(Boolean);
+    }
+    guardarLocal();
+    moduloAbierto = 'ingreso';
+    render();
+    toast('Visita recuperada');
+  } catch (e) {
+    toast('Error de conexión al recuperar', true);
+  }
+}
+
+/* ============================================================
+ * UTILIDADES
+ * ============================================================ */
+function guardarLocal() {
+  try { localStorage.setItem('henkel_gestion_actual', JSON.stringify(gestion)); } catch (e) {}
+}
+function cargarLocal() {
+  try {
+    const raw = localStorage.getItem('henkel_gestion_actual');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
+function comprimirImagen(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxAncho = 1280;
+        const escala = Math.min(1, maxAncho / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * escala;
+        canvas.height = img.height * escala;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.72));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+let toastTimeout;
+function toast(msg, esError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = esError ? 'mostrar error' : 'mostrar';
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => { t.className = ''; }, 3200);
+}
+</script>
