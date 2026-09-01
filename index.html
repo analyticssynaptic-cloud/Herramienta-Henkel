@@ -424,8 +424,19 @@
         <div class="card-head-text"><div class="card-title">Premios</div><div class="card-sub">Inventario de premios que llega/se carga al PDV</div></div>
         <span class="saved-badge" id="badge-premios"><svg class="icon icon-sm"><use href="#i-check"/></svg>Guardado</span>
       </div>
+      <label class="label" style="margin-bottom:9px">Premios recibidos en esta visita</label>
       <div id="listaPremios"></div>
       <button type="button" class="btn btn-soft btn-block" onclick="agregarPremio()"><svg class="icon icon-sm"><use href="#i-plus"/></svg>Agregar premio recibido</button>
+
+      <div class="field" style="margin-top:20px;margin-bottom:0">
+        <label class="label label-req">Inventario actual en el punto (conteo físico)</label>
+        <div class="info-banner" style="margin-bottom:10px">
+          <div class="info-banner-title"><svg class="icon icon-sm"><use href="#i-box"/></svg>Control de obsequios</div>
+          <div style="font-size:12.5px">Cuenta físicamente cuántos quedan de <b>cada premio del catálogo</b> en el punto, así haya sido 0.</div>
+        </div>
+        <div id="listaInventarioPremios"></div>
+      </div>
+
       <div class="field" style="margin-top:16px"><label class="label" for="premiosObservaciones">Observaciones</label><textarea id="premiosObservaciones" class="textarea" placeholder="Notas sobre el inventario de premios"></textarea></div>
       <div class="field" style="margin-bottom:0"><label class="label">Foto del inventario de premios</label>
         <div class="upload upload-mini" id="uploadPremios">
@@ -607,8 +618,16 @@ const MODS = [
   {id:'salida',      icon:'i-list',   label:'Salida',      gate:true}
 ];
 
-// Voz del Consumidor: percepción de un toque (emoji), simple y rápida de responder
-const PERCEPCION = [ {v:1,e:'😞',l:'Muy mala'}, {v:2,e:'🙁',l:'Mala'}, {v:3,e:'😐',l:'Regular'}, {v:4,e:'😊',l:'Buena'}, {v:5,e:'🤩',l:'Excelente'} ];
+// Voz del Consumidor: encuesta completa, con opciones de un toque (emoji) para responder rápido
+const TIPO_PRODUCTO_PREFERIDO = [ {v:'Shampoo',e:'🧴'}, {v:'Acondicionador',e:'💧'}, {v:'Tratamiento/Mascarilla',e:'✨'}, {v:'Coloración',e:'🎨'}, {v:'Styling',e:'💨'}, {v:'Otro',e:'❔'} ];
+const CONOCE_MARCA = [ {v:'Sí la conocía',e:'👀'}, {v:'No la conocía',e:'🆕'} ];
+const USO_MARCA = [ {v:'La usa actualmente',e:'🙋'}, {v:'La ha probado antes',e:'🕓'}, {v:'Nunca la ha probado',e:'🚫'} ];
+const OPINION_PRODUCTOS = [ {v:1,e:'😞',l:'Muy mala'}, {v:2,e:'🙁',l:'Mala'}, {v:3,e:'😐',l:'Regular'}, {v:4,e:'😊',l:'Buena'}, {v:5,e:'🤩',l:'Excelente'} ];
+const PERCEPCION_PUNTO = [ {v:'No le gustó',e:'🙁'}, {v:'Ni fu ni fa',e:'😐'}, {v:'Le gustó',e:'🙂'}, {v:'Le encantó',e:'🤩'} ];
+const ATRIBUTOS_DESEADOS = [ {v:'Mejor precio',e:'💰'}, {v:'Mejor fragancia',e:'🌸'}, {v:'Mejor resultado',e:'✨'}, {v:'Empaque/presentación',e:'📦'}, {v:'Promociones y combos',e:'🎁'}, {v:'Mayor disponibilidad',e:'🛒'} ];
+const TIPOS_CABELLO = ['Liso','Ondulado','Rizado','Afro','Teñido/Con color','Graso','Seco','Dañado'];
+const EDADES = ['18-25','26-35','36-45','46-55','56+'];
+const GENEROS = ['Femenino','Masculino','Prefiere no decir'];
 const TIPOS_ACTIVIDAD_COMPETENCIA = ['Exhibición especial','Descuento / Promoción','Degustación / Impulso','Mercaderista en el punto','Otro'];
 
 let parametrizacion = { pdvs:[], pdvCiudad:{}, pdvsPorCiudad:{}, usuarios:[], usuariosEspeciales:[], documentosEspeciales:[], skus:[], skuProCascada:{}, categoriasSkuPro:[], premios:[] };
@@ -624,7 +643,7 @@ let fotoIngreso = '', fotoIngresoURL = '';
 let fotoSalida = '', fotoSalidaURL = '';
 let fotoPremios = '', fotoPremiosURL = '';
 let fotoRedencion = '', fotoRedencionURL = '';
-let ventasList = [], premiosList = [], vozList = [], redencionesList = [], competenciaList = [];
+let ventasList = [], premiosList = [], vozList = [], redencionesList = [], competenciaList = [], premiosInventarioActual = [];
 let asesorSel = { nombre:'', documento:'', telefono:'' };
 let pendAsesorNombre = null, pendPDV = null, pendCiudad = null;
 let registroPromise = null;
@@ -807,7 +826,8 @@ function aplicarGestionRemota(registroIdRecuperado, g){
   setRadio('competenciaHayActividad', g.competenciaHayActividad); onCompetenciaChange();
   const darId=list=>(list||[]).map(it=>Object.assign({id:uid('r')},it));
   ventasList=darId(g.ventaProductos); premiosList=darId(g.premiosRecibidos); vozList=darId(g.vozConsumidor); redencionesList=darId(g.redencionesRealizadas); competenciaList=darId(g.competenciaEvidencias);
-  renderVentas(); renderPremios(); renderVoz(); renderRedenciones(); renderCompetencia();
+  premiosInventarioActual = Array.isArray(g.premiosInventarioActual) ? g.premiosInventarioActual.slice() : [];
+  renderVentas(); renderPremios(); renderVoz(); renderRedenciones(); renderCompetencia(); renderInventarioPremios();
   document.getElementById('premiosObservaciones').value=g.premiosObservaciones||'';
   document.getElementById('redencionesObservaciones').value=g.redencionesObservaciones||'';
   fotoIngreso=''; fotoIngresoURL=g.fotoIngresoURL||''; aplicarFoto('ingreso', fotoIngresoURL);
@@ -939,7 +959,7 @@ function cargarPDVsPorCiudad(ciudad){
   s.innerHTML='<option value="">Selecciona el punto de venta</option>'+lista.slice().sort((a,b)=>a.localeCompare(b,'es')).map(p=>'<option value="'+escAttr(p)+'">'+escHtml(p)+'</option>').join('');
   if(actual && lista.indexOf(actual)!==-1) s.value=actual;
 }
-function poblarProductos(){ renderVentas(); renderPremios(); renderRedenciones(); }
+function poblarProductos(){ renderVentas(); renderPremios(); renderRedenciones(); renderInventarioPremios(); }
 
 // ===== SELECT SIMPLE DE PRODUCTO (SKU / Premio) =====
 function opcionesProducto(lista, seleccionado){
@@ -997,6 +1017,28 @@ function renderPremios(){
     <div class="field" style="margin-bottom:0;margin-top:11px"><label class="label label-req">Cantidad recibida</label><input type="number" class="input" min="1" value="${p.cantidad}" oninput="setCantidad('${p.id}',this.value)"></div>`; cont.appendChild(d); });
 }
 
+// ===== INVENTARIO ACTUAL DE PREMIOS (conteo físico, uno por cada premio del catálogo) =====
+function sincronizarInventarioPremios(){
+  const lista = parametrizacion.premios || [];
+  if(!Array.isArray(premiosInventarioActual)) premiosInventarioActual=[];
+  lista.forEach(prod=>{ if(!premiosInventarioActual.find(x=>x.producto===prod)) premiosInventarioActual.push({producto:prod, cantidadActual:''}); });
+  premiosInventarioActual = premiosInventarioActual.filter(x=> lista.length===0 || lista.indexOf(x.producto)!==-1);
+}
+function renderInventarioPremios(){
+  sincronizarInventarioPremios();
+  const cont=document.getElementById('listaInventarioPremios'); if(!cont) return; cont.innerHTML='';
+  if(premiosInventarioActual.length===0){ cont.innerHTML='<div class="empty-hint">Aún no hay premios parametrizados en la hoja "Premios".</div>'; return; }
+  premiosInventarioActual.forEach(it=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)';
+    row.innerHTML=`<span style="font-size:12.5px;flex:1;color:var(--ink)">${escHtml(it.producto)}</span><input type="number" class="input inv-premio-input" style="width:88px;min-height:40px;padding:8px 10px;text-align:center" min="0" placeholder="Cant.">`;
+    const input = row.querySelector('.inv-premio-input');
+    input.value = it.cantidadActual;
+    input.addEventListener('input', () => { it.cantidadActual = input.value; });
+    cont.appendChild(row);
+  });
+}
+
 // ===== REDENCIONES =====
 function agregarRedencion(){ redencionesList.push({id:uid('r'),producto:'',cantidad:1,beneficiario:''}); renderRedenciones(); }
 function eliminarRedencion(id){ redencionesList=redencionesList.filter(x=>x.id!==id); renderRedenciones(); }
@@ -1012,25 +1054,62 @@ function renderRedenciones(){
     <div class="field" style="margin-bottom:0"><label class="label">Beneficiario (opcional)</label><input type="text" class="input" placeholder="Nombre del consumidor" value="${escAttr(p.beneficiario)}" oninput="setBeneficiario('${p.id}',this.value)"></div>`; cont.appendChild(d); });
 }
 
-// ===== VOZ DEL CONSUMIDOR (simple: comentario + percepción) =====
-function agregarVoz(){ vozList.push({id:uid('voz'),comentario:'',percepcion:0,productoComentado:''}); renderVoz(); }
+// ===== VOZ DEL CONSUMIDOR (encuesta completa por consumidor entrevistado) =====
+function agregarVoz(){ vozList.push({id:uid('voz'),tipoProductoPreferido:'',conoceMarca:'',usoMarca:'',opinionProductos:0,tipoCabello:'',atributosDeseados:[],atributosOtro:'',percepcionPunto:'',mejoraria:'',productoComentado:'',edad:'',genero:''}); renderVoz(); }
 function eliminarVoz(id){ vozList=vozList.filter(x=>x.id!==id); renderVoz(); }
 function setFldVoz(id,campo,v){ const p=vozList.find(x=>x.id===id); if(p) p[campo]=v; }
+function toggleAtributoVoz(id, valor, checked){
+  const p=vozList.find(x=>x.id===id); if(!p) return;
+  if(!Array.isArray(p.atributosDeseados)) p.atributosDeseados=[];
+  if(checked){ if(p.atributosDeseados.indexOf(valor)===-1) p.atributosDeseados.push(valor); }
+  else { p.atributosDeseados=p.atributosDeseados.filter(v=>v!==valor); }
+}
 function renderVoz(){
   const cont=document.getElementById('listaVoz'); if(!cont) return; cont.innerHTML='';
   if(vozList.length===0){ cont.innerHTML='<div class="empty-hint">Agrega la opinión de un consumidor.</div>'; return; }
   vozList.forEach((p,idx)=>{ const d=document.createElement('div'); d.className='item'; d.innerHTML=`
-    <div class="item-head"><div class="item-title"><svg class="icon icon-sm"><use href="#i-chat"/></svg>Opinión ${idx+1}</div><button type="button" class="btn btn-danger btn-icon" onclick="eliminarVoz('${p.id}')"><svg class="icon icon-sm"><use href="#i-trash"/></svg></button></div>
-    <div class="field"><label class="label label-req">Comentario del consumidor</label><textarea class="textarea" placeholder="¿Qué comentó?" oninput="setFldVoz('${p.id}','comentario',this.value)">${escHtml(p.comentario||'')}</textarea></div>
-    <div class="field"><label class="label label-req">Percepción general</label>${gruposEmojiPercepcion(p)}</div>
-    <div class="field" style="margin-bottom:0"><label class="label">Producto relacionado <span style="font-weight:400;color:var(--muted)">(opcional)</span></label><input type="text" class="input" placeholder="Ej: GLISS Ultimate Repair" value="${escAttr(p.productoComentado)}" oninput="setFldVoz('${p.id}','productoComentado',this.value)"></div>`; cont.appendChild(d); });
+    <div class="item-head"><div class="item-title"><svg class="icon icon-sm"><use href="#i-chat"/></svg>Consumidor ${idx+1}</div><button type="button" class="btn btn-danger btn-icon" onclick="eliminarVoz('${p.id}')"><svg class="icon icon-sm"><use href="#i-trash"/></svg></button></div>
+    <div class="field"><label class="label label-req">¿Qué tipo de producto usa más?</label>${gruposEmoji('tipoProductoPreferido',p,TIPO_PRODUCTO_PREFERIDO)}</div>
+    <div class="field"><label class="label label-req">¿Conocía la marca GLISS?</label>${gruposEmoji('conoceMarca',p,CONOCE_MARCA)}</div>
+    <div class="field"><label class="label label-req">¿Ha usado productos de la marca?</label>${gruposEmoji('usoMarca',p,USO_MARCA)}</div>
+    <div class="field"><label class="label label-req">¿Qué opinión tiene sobre los productos?</label>${gruposEmoji('opinionProductos',p,OPINION_PRODUCTOS)}</div>
+    <div class="field"><label class="label">¿Cuál es su tipo de cabello? <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>${gruposOpcionSimple('tipoCabello',p,TIPOS_CABELLO)}</div>
+    <div class="field"><label class="label">¿Qué le gustaría ver que la competencia no ofrece? <span style="font-weight:400;color:var(--muted)">(opcional, varias)</span></label>
+      ${gruposAtributosVoz(p)}
+      <input type="text" class="input" style="margin-top:9px" placeholder="Otro (opcional)" value="${escAttr(p.atributosOtro)}" oninput="setFldVoz('${p.id}','atributosOtro',this.value)">
+    </div>
+    <div class="field"><label class="label label-req">Al probar/ver el producto en el punto, ¿cuál fue su percepción?</label>${gruposEmoji('percepcionPunto',p,PERCEPCION_PUNTO)}</div>
+    <div class="field"><label class="label">¿Qué mejoraría? <span style="font-weight:400;color:var(--muted)">(opcional)</span></label><textarea class="textarea" placeholder="Ideas o cosas por mejorar" oninput="setFldVoz('${p.id}','mejoraria',this.value)">${escHtml(p.mejoraria||'')}</textarea></div>
+    <div class="field"><label class="label">Producto comentado <span style="font-weight:400;color:var(--muted)">(opcional)</span></label><input type="text" class="input" placeholder="Ej: GLISS Ultimate Repair" value="${escAttr(p.productoComentado)}" oninput="setFldVoz('${p.id}','productoComentado',this.value)"></div>
+    <div class="field"><label class="label">Rango de edad aprox. <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>${gruposOpcionSimple('edad',p,EDADES)}</div>
+    <div class="field" style="margin-bottom:0"><label class="label">Género <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>${gruposOpcionSimple('genero',p,GENEROS)}</div>`; cont.appendChild(d); });
 }
-function gruposEmojiPercepcion(p){
-  return `<div class="opt-grid emoji-grid">${PERCEPCION.map(o=>{
-    const idSafe='voz-perc-'+p.id+'-'+o.v;
-    const checked = String(p.percepcion)===String(o.v);
-    return `<div class="opt"><input type="radio" name="voz-perc-${p.id}" id="${idSafe}"${checked?' checked':''} onchange="setFldVoz('${p.id}','percepcion',${o.v})">
-      <label for="${idSafe}"><span class="emoji-ic">${o.e}</span><span class="emoji-lbl">${o.l}</span></label></div>`;
+// Grupo de opciones de una sola respuesta, mostradas como botón emoji + etiqueta corta
+function gruposEmoji(campo, p, opciones){
+  return `<div class="opt-grid emoji-grid">${opciones.map(o=>{
+    const idSafe='voz-'+campo+'-'+p.id+'-'+String(o.v).replace(/[^a-zA-Z0-9]/g,'');
+    const checked = String(p[campo])===String(o.v);
+    const setVal = typeof o.v==='number' ? o.v : ("'"+escAttr(String(o.v)).replace(/'/g,"\\'")+"'");
+    return `<div class="opt"><input type="radio" name="voz-${campo}-${p.id}" id="${idSafe}"${checked?' checked':''} onchange="setFldVoz('${p.id}','${campo}',${setVal})">
+      <label for="${idSafe}"><span class="emoji-ic">${o.e}</span><span class="emoji-lbl">${o.l||o.v}</span></label></div>`;
+  }).join('')}</div>`;
+}
+// Grupo de opciones de una sola respuesta, en texto simple (sin emoji) - edad, tipo de cabello, género
+function gruposOpcionSimple(campo, p, opciones){
+  return `<div class="opt-grid">${opciones.map(v=>{
+    const idSafe='voz-'+campo+'-'+p.id+'-'+v.replace(/[^a-zA-Z0-9]/g,'');
+    const checked = p[campo]===v;
+    return `<div class="opt"><input type="radio" name="voz-${campo}-${p.id}" id="${idSafe}"${checked?' checked':''} onchange="setFldVoz('${p.id}','${campo}','${escAttr(v).replace(/'/g,"\\'")}')">
+      <label for="${idSafe}">${escHtml(v)}</label></div>`;
+  }).join('')}</div>`;
+}
+// Selección múltiple (varios atributos deseados a la vez)
+function gruposAtributosVoz(p){
+  const sel=p.atributosDeseados||[];
+  return `<div class="opt-grid emoji-grid">${ATRIBUTOS_DESEADOS.map(o=>{
+    const idSafe='voz-attr-'+p.id+'-'+o.v.replace(/[^a-zA-Z0-9]/g,'');
+    return `<div class="opt"><input type="checkbox" id="${idSafe}"${sel.indexOf(o.v)!==-1?' checked':''} onchange="toggleAtributoVoz('${p.id}','${escAttr(o.v)}',this.checked)">
+      <label for="${idSafe}"><span class="emoji-ic">${o.e}</span><span class="emoji-lbl">${o.v}</span></label></div>`;
   }).join('')}</div>`;
 }
 
@@ -1174,7 +1253,7 @@ function persistir(){
     if(Array.isArray(campos.competenciaEvidencias)) campos.competenciaEvidencias=campos.competenciaEvidencias.map(ev=>Object.assign({},ev,{foto:''}));
     const data={ loggedIn:true, guardadoEn:Date.now(), registroId, saved, current, ubicacion, esUsuarioEspecial,
       fotoIngresoURL, fotoSalidaURL, fotoPremiosURL, fotoRedencionURL, campos, asesorSel,
-      listas:{ ventasList, premiosList, vozList, redencionesList, competenciaList: competenciaList.map(ev=>Object.assign({},ev,{foto:''})) } };
+      listas:{ ventasList, premiosList, vozList, redencionesList, premiosInventarioActual, competenciaList: competenciaList.map(ev=>Object.assign({},ev,{foto:''})) } };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
   }catch(e){}
 }
@@ -1206,8 +1285,8 @@ function restaurarSesion(){
   if(g.ventaMotivoNo!=null){ const el=document.getElementById('ventaMotivoNo'); if(el) el.value=g.ventaMotivoNo; }
   setRadio('competenciaHayActividad', g.competenciaHayActividad); onCompetenciaChange();
   const L=d.listas||{};
-  ventasList=L.ventasList||[]; premiosList=L.premiosList||[]; vozList=L.vozList||[]; redencionesList=L.redencionesList||[]; competenciaList=L.competenciaList||[];
-  renderVentas(); renderPremios(); renderVoz(); renderRedenciones(); renderCompetencia();
+  ventasList=L.ventasList||[]; premiosList=L.premiosList||[]; vozList=L.vozList||[]; redencionesList=L.redencionesList||[]; competenciaList=L.competenciaList||[]; premiosInventarioActual=L.premiosInventarioActual||[];
+  renderVentas(); renderPremios(); renderVoz(); renderRedenciones(); renderCompetencia(); renderInventarioPremios();
   document.getElementById('premiosObservaciones').value=g.premiosObservaciones||'';
   document.getElementById('redencionesObservaciones').value=g.redencionesObservaciones||'';
   ubicacion=d.ubicacion||{lat:null,lng:null,acc:null};
@@ -1252,11 +1331,15 @@ function validarModulo(id){
   }
   if(id==='premios'){
     premiosList.forEach((p,i)=>{ if(!p.producto) e.push('Premio '+(i+1)); if(!p.cantidad||p.cantidad<1) e.push('Cantidad de premio '+(i+1)); });
+    premiosInventarioActual.forEach(it=>{ if(it.cantidadActual===''||it.cantidadActual===null||it.cantidadActual===undefined) e.push('Conteo actual de "'+it.producto+'"'); });
   }
   if(id==='voz'){
     vozList.forEach((p,i)=>{
-      if(!p.comentario) e.push('Comentario (opinión '+(i+1)+')');
-      if(!p.percepcion) e.push('Percepción general (opinión '+(i+1)+')');
+      if(!p.tipoProductoPreferido) e.push('Tipo de producto preferido (consumidor '+(i+1)+')');
+      if(!p.conoceMarca) e.push('¿Conocía la marca? (consumidor '+(i+1)+')');
+      if(!p.usoMarca) e.push('¿Ha usado la marca? (consumidor '+(i+1)+')');
+      if(!p.opinionProductos) e.push('Opinión sobre los productos (consumidor '+(i+1)+')');
+      if(!p.percepcionPunto) e.push('Percepción en el punto (consumidor '+(i+1)+')');
     });
   }
   if(id==='redenciones'){
@@ -1287,8 +1370,9 @@ function recolectarGestion(){
     ventaMotivoNo: val('ventaMotivoNo'),
     ventaProductos: ventasList.map(p=>({categoria:p.categoria,marca:p.marca,producto:p.producto,ean:p.ean,cantidad:p.cantidad})),
     premiosRecibidos: premiosList.map(p=>({producto:p.producto,cantidad:p.cantidad})),
+    premiosInventarioActual: premiosInventarioActual.map(it=>({producto:it.producto,cantidadActual:it.cantidadActual})),
     premiosObservaciones: val('premiosObservaciones'), fotoPremios: fotoPremios, fotoPremiosURL: fotoPremiosURL,
-    vozConsumidor: vozList.map(p=>({comentario:p.comentario,percepcion:p.percepcion,productoComentado:p.productoComentado})),
+    vozConsumidor: vozList.map(p=>({tipoProductoPreferido:p.tipoProductoPreferido,conoceMarca:p.conoceMarca,usoMarca:p.usoMarca,opinionProductos:p.opinionProductos,tipoCabello:p.tipoCabello,atributosDeseados:p.atributosDeseados||[],atributosOtro:p.atributosOtro,percepcionPunto:p.percepcionPunto,mejoraria:p.mejoraria,productoComentado:p.productoComentado,edad:p.edad,genero:p.genero})),
     redencionesRealizadas: redencionesList.map(p=>({producto:p.producto,cantidad:p.cantidad,beneficiario:p.beneficiario})),
     redencionesObservaciones: val('redencionesObservaciones'), fotoRedencion: fotoRedencion, fotoRedencionURL: fotoRedencionURL,
     competenciaHayActividad: (document.querySelector('input[name="competenciaHayActividad"]:checked')||{}).value||'',
@@ -1342,12 +1426,26 @@ function renderResumen(){
   if(ventaR==='Si'){ vH+=(ventasList.length?ventasList.map((p,i)=>'<div class="res-mini">'+(i+1)+'. <b>'+(escHtml(p.producto)||'—')+'</b> · '+(p.cantidad||0)+' und</div>').join(''):'<div class="res-mini">Sin productos vendidos</div>'); }
   h+=secRaw('i-cart','Ventas',vH);
 
-  const pH = premiosList.length ? premiosList.map((p,i)=>'<div class="res-mini">'+(i+1)+'. <b>'+(escHtml(p.producto)||'—')+'</b> · '+(p.cantidad||0)+' und</div>').join('') : '<div class="res-mini">Sin premios registrados</div>';
+  let pH = premiosList.length ? premiosList.map((p,i)=>'<div class="res-mini">'+(i+1)+'. <b>'+(escHtml(p.producto)||'—')+'</b> · '+(p.cantidad||0)+' und recibidas</div>').join('') : '<div class="res-mini">Sin premios recibidos registrados</div>';
+  if(premiosInventarioActual.length){ pH+='<div class="res-mini" style="margin-top:6px"><b>Inventario actual:</b></div>'+premiosInventarioActual.map(it=>'<div class="res-mini">• '+escHtml(it.producto)+': '+(it.cantidadActual!==''?it.cantidadActual:'—')+'</div>').join(''); }
   h+=secRaw('i-box','Premios',pH);
 
-  const vozH = vozList.length ? vozList.map((p,i)=>{ const op=PERCEPCION.find(o=>String(o.v)===String(p.percepcion));
-    return '<div class="res-mini">'+(i+1)+'. '+(op?op.e:'')+' '+(escHtml(p.comentario)||'—')+(p.productoComentado?' · '+escHtml(p.productoComentado):'')+'</div>'; }).join('') : '<div class="res-mini">Sin opiniones registradas</div>';
-  h+=secRaw('i-chat','Voz del Consumidor',vozH);
+  const vozH = vozList.length ? vozList.map((p,i)=>{
+    const op=OPINION_PRODUCTOS.find(o=>String(o.v)===String(p.opinionProductos));
+    const atributos=[...(p.atributosDeseados||[]), p.atributosOtro].filter(Boolean).join(', ');
+    return '<div style="padding:7px 0;border-bottom:1px solid var(--line)">'+
+      '<div class="res-mini"><b>Consumidor '+(i+1)+'</b></div>'+
+      '<div class="res-mini">Producto preferido: '+(escHtml(p.tipoProductoPreferido)||'—')+' · ¿Conocía la marca?: '+(escHtml(p.conoceMarca)||'—')+'</div>'+
+      '<div class="res-mini">¿La ha usado?: '+(escHtml(p.usoMarca)||'—')+' · Opinión: '+(op?op.e+' '+op.l:'—')+'</div>'+
+      (p.tipoCabello?'<div class="res-mini">Tipo de cabello: '+escHtml(p.tipoCabello)+'</div>':'')+
+      (atributos?'<div class="res-mini">Le gustaría ver: '+escHtml(atributos)+'</div>':'')+
+      '<div class="res-mini">Percepción en el punto: '+(escHtml(p.percepcionPunto)||'—')+'</div>'+
+      (p.productoComentado?'<div class="res-mini">Producto comentado: '+escHtml(p.productoComentado)+'</div>':'')+
+      (p.mejoraria?'<div class="res-mini">Mejoraría: "'+escHtml(p.mejoraria)+'"</div>':'')+
+      ((p.edad||p.genero)?'<div class="res-mini">'+[p.edad,p.genero].filter(Boolean).map(escHtml).join(' · ')+'</div>':'')+
+    '</div>';
+  }).join('') : '<div class="res-mini">Sin opiniones registradas</div>';
+  h+=secRaw('i-chat','Voz del Consumidor ('+vozList.length+')', vozH);
 
   const rH = redencionesList.length ? redencionesList.map((p,i)=>'<div class="res-mini">'+(i+1)+'. <b>'+(escHtml(p.producto)||'—')+'</b> · '+(p.cantidad||0)+' und'+(p.beneficiario?' · '+escHtml(p.beneficiario):'')+'</div>').join('') : '<div class="res-mini">Sin redenciones registradas</div>';
   h+=secRaw('i-gift','Redenciones',rH);
@@ -1381,7 +1479,26 @@ function generarTextoGestion(){
   if(ventaR==='No') t+='   ↳ Motivo: '+(val('ventaMotivoNo')||'-')+'\n';
   if(ventaR==='Si'){ ventasList.forEach(p=>{ t+='   • '+(p.producto||'-')+'  _x'+(p.cantidad||0)+'_\n'; }); }
   if(premiosList.length){ t+='\n📦 *PREMIOS RECIBIDOS*\n'; premiosList.forEach(p=>{ t+='   • '+(p.producto||'-')+'  _x'+(p.cantidad||0)+'_\n'; }); }
-  if(vozList.length){ t+='\n💬 *VOZ DEL CONSUMIDOR*\n'; vozList.forEach((p,i)=>{ const op=PERCEPCION.find(o=>String(o.v)===String(p.percepcion)); t+='   ▸ '+(op?op.e:'')+' '+(p.comentario||'-')+'\n'; }); }
+  if(premiosInventarioActual.length){ t+='\n📋 *INVENTARIO ACTUAL DE PREMIOS*\n'; premiosInventarioActual.forEach(it=>{ t+='   • '+(it.producto||'-')+': '+(it.cantidadActual!==''?it.cantidadActual:'-')+'\n'; }); }
+  if(vozList.length){
+    t+='\n💬 *VOZ DEL CONSUMIDOR*\n';
+    vozList.forEach((p,i)=>{
+      const op=OPINION_PRODUCTOS.find(o=>String(o.v)===String(p.opinionProductos));
+      const atributos=[...(p.atributosDeseados||[]), p.atributosOtro].filter(Boolean).join(', ');
+      t+='   ▸ Consumidor '+(i+1)+':\n';
+      t+='      • Producto preferido: '+(p.tipoProductoPreferido||'-')+'\n';
+      t+='      • ¿Conocía la marca?: '+(p.conoceMarca||'-')+'\n';
+      t+='      • ¿La ha usado?: '+(p.usoMarca||'-')+'\n';
+      t+='      • Opinión sobre los productos: '+(op?op.e+' '+op.l:'-')+'\n';
+      if(p.tipoCabello) t+='      • Tipo de cabello: '+p.tipoCabello+'\n';
+      if(atributos) t+='      • Le gustaría ver: '+atributos+'\n';
+      t+='      • Percepción en el punto: '+(p.percepcionPunto||'-')+'\n';
+      if(p.productoComentado) t+='      • Producto: '+p.productoComentado+'\n';
+      if(p.mejoraria) t+='      • Mejoraría: '+p.mejoraria+'\n';
+      if(p.edad) t+='      • Edad aprox.: '+p.edad+'\n';
+      if(p.genero) t+='      • Género: '+p.genero+'\n';
+    });
+  }
   if(redencionesList.length){ t+='\n🎁 *REDENCIONES*\n'; redencionesList.forEach(p=>{ t+='   • '+(p.producto||'-')+'  _x'+(p.cantidad||0)+'_'+(p.beneficiario?' · '+p.beneficiario:'')+'\n'; }); }
   if(competenciaR==='Si'&&competenciaList.length){ t+='\n🔎 *ACTIVIDAD DE LA COMPETENCIA*\n'; competenciaList.forEach(p=>{ t+='   • '+(p.tipo||'-')+(p.marca?' · '+p.marca:'')+(p.descripcion?' — '+p.descripcion:'')+'\n'; }); }
   if(val('proximaVisita')) t+='\n📅 Próxima visita: '+val('proximaVisita')+'\n';
