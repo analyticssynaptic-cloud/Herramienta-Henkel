@@ -152,6 +152,22 @@
   .modgrid-check{position:absolute;top:5px;right:5px;width:16px;height:16px;border-radius:50%;background:var(--success);color:#fff;display:flex;align-items:center;justify-content:center}
   .modgrid-check svg{width:10px;height:10px}
 
+  /* HOJA DE SELECCIÓN DE PRODUCTO (buscador) */
+  .combosheet-bd{position:fixed;inset:0;background:rgba(36,28,28,.55);opacity:0;pointer-events:none;transition:opacity .25s;z-index:70}
+  .combosheet-bd.open{opacity:1;pointer-events:auto}
+  .combosheet{position:fixed;left:0;right:0;bottom:0;z-index:72;background:#fff;border-radius:24px 24px 0 0;padding:18px 18px max(18px,env(safe-area-inset-bottom));max-width:720px;margin:0 auto;box-shadow:0 -10px 40px -10px rgba(0,0,0,.3);transform:translateY(105%);transition:transform .3s cubic-bezier(.34,1.56,.64,1);display:flex;flex-direction:column;max-height:78vh}
+  .combosheet.open{transform:translateY(0)}
+  .combosheet-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0}
+  .combosheet-h b{font-family:'Poppins';font-size:15px;font-weight:600}
+  .combosheet-close{width:32px;height:32px;border-radius:50%;border:none;background:var(--bg);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+  .combosheet-search{position:relative;margin-bottom:10px;flex-shrink:0}
+  .combosheet-search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+  .combosheet-search input{width:100%;padding:13px 15px 13px 42px;border:1.5px solid var(--line-strong);border-radius:var(--r-md);background:#fffbfb;font-family:inherit;font-size:15px;min-height:46px}
+  .combosheet-search input:focus{outline:none;border-color:var(--henkel-light);background:#fff;box-shadow:0 0 0 4px rgba(255,92,92,.14)}
+  .combosheet-list{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;border-top:1px solid var(--line)}
+  .combo-item{padding:14px 6px;font-size:14.5px;color:var(--ink);border-bottom:1px solid var(--line);cursor:pointer}
+  .combo-item:active{background:var(--henkel-soft)}
+
   /* TOAST */
   .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:var(--r-md);font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:9px;box-shadow:var(--sh-pop);opacity:0;pointer-events:none;transition:all .3s;z-index:9998}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -541,6 +557,14 @@
   <div class="modgrid-grid" id="modgridGrid"></div>
 </div>
 
+<!-- HOJA DE SELECCIÓN DE PRODUCTO (con buscador) -->
+<div class="combosheet-bd" id="combosheetBd" onclick="cerrarCombo()"></div>
+<div class="combosheet" id="combosheet">
+  <div class="combosheet-h"><b id="combosheetTitulo">Selecciona</b><button type="button" class="combosheet-close" onclick="cerrarCombo()"><svg class="icon icon-sm"><use href="#i-x"/></svg></button></div>
+  <div class="combosheet-search"><svg class="icon"><use href="#i-search"/></svg><input type="text" id="comboSearch" placeholder="Buscar..." oninput="filtrarCombo()" autocomplete="off"></div>
+  <div class="combosheet-list" id="comboLista"></div>
+</div>
+
 <!-- BOTTOM NAV -->
 <nav class="bottomnav">
   <div class="nav-side left"><button class="nav-icon" id="btnPersona" type="button" aria-label="Mi información"><svg class="icon"><use href="#i-user"/></svg></button></div>
@@ -672,6 +696,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('.bottomnav').addEventListener('click', e => {
     if (e.target.closest('#fab')) toggleModGrid();
     else if (e.target.closest('#btnPersona')) abrirPersona();
+  });
+
+  document.getElementById('comboLista').addEventListener('click', e => {
+    const item = e.target.closest('.combo-item'); if (!item) return;
+    seleccionarCombo(item.dataset.value);
   });
 
   if (!restaurarSesion()) renderNav();
@@ -945,9 +974,18 @@ function aplicarUbicacionUI(){
 async function cargarParametrizacion(){
   ocultarAlertaParam();
   const cache = leerCacheParametrizacion();
-  if (cache) aplicarParametrizacion(cache);
-  await refrescarParametrizacion(!cache);
+  if (cache) { aplicarParametrizacion(cache); await refrescarParametrizacion(false, 1); return; }
+  // Sin copia local (primera vez en este celular, o venció hace más de 1h): se avisa
+  // que está cargando (antes quedaba igual que "Selecciona tu nombre" y parecía trabado)
+  // y se reintenta solo hasta 3 veces antes de pasar a modo manual.
+  mostrarCargandoAsesores();
+  await refrescarParametrizacion(true, 3);
 }
+function mostrarCargandoAsesores(){
+  const s=document.getElementById('asesorNombre');
+  if(s){ s.disabled=true; s.innerHTML='<option value="">Cargando asesores...</option>'; }
+}
+function esperar(ms){ return new Promise(r=>setTimeout(r,ms)); }
 function leerCacheParametrizacion(){
   try{
     const raw = localStorage.getItem(PARAM_CACHE_KEY);
@@ -962,18 +1000,26 @@ function leerCacheParametrizacion(){
 function guardarCacheParametrizacion(data){
   try{ localStorage.setItem(PARAM_CACHE_KEY, JSON.stringify({data:data, guardadoEn:Date.now()})); }catch(e){}
 }
-async function refrescarParametrizacion(mostrarErrorSiFalla){
-  try{
-    const res=await fetch(GAS_URL+'?action=parametrizacion',{redirect:'follow'});
-    const data=await res.json();
-    if(data&&data.success&&Array.isArray(data.pdvs)&&data.pdvs.length>0){
-      guardarCacheParametrizacion(data);
-      aplicarParametrizacion(data);
-    } else if(mostrarErrorSiFalla){
-      activarModoManual((data&&data.error)?data.error:'La hoja respondió sin puntos de venta. Revisa la hoja "PDV".');
+async function refrescarParametrizacion(mostrarErrorSiFalla, intentos){
+  intentos = intentos || 1;
+  for (let i=1; i<=intentos; i++){
+    try{
+      const res=await fetch(GAS_URL+'?action=parametrizacion',{redirect:'follow'});
+      const data=await res.json();
+      if(data&&data.success&&Array.isArray(data.pdvs)&&data.pdvs.length>0){
+        guardarCacheParametrizacion(data);
+        aplicarParametrizacion(data);
+        return;
+      }
+      if(i===intentos && mostrarErrorSiFalla){
+        activarModoManual((data&&data.error)?data.error:'La hoja respondió sin puntos de venta. Revisa la hoja "PDV".');
+      }
+    }catch(err){
+      if(i===intentos && mostrarErrorSiFalla){
+        activarModoManual('No hay conexión con el servidor. ('+err.message+')');
+      }
     }
-  }catch(err){
-    if(mostrarErrorSiFalla) activarModoManual('No hay conexión con el servidor. ('+err.message+')');
+    if(i<intentos) await esperar(900*i); // reintento con espera creciente: 0.9s, 1.8s...
   }
 }
 function aplicarParametrizacion(data){
@@ -984,6 +1030,7 @@ function aplicarParametrizacion(data){
 }
 function cargarAsesores(){
   const s=document.getElementById('asesorNombre'); const actual=s.value;
+  s.disabled=false;
   s.innerHTML='<option value="">Selecciona tu nombre</option>'+todosLosUsuarios.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')).map(u=>'<option value="'+escAttr(u.nombre)+'">'+escHtml(u.nombre)+(u.especial?' ★':'')+'</option>').join('');
   if(actual) s.value=actual;
 }
@@ -1004,18 +1051,46 @@ function cargarPDVsPorCiudad(ciudad){
 }
 function poblarProductos(){ renderVentas(); renderPremios(); renderRedenciones(); renderInventarioPremios(); }
 
-// ===== BUSCADOR DE PRODUCTO (SKU / Premio) =====
-// Input de texto + <datalist>: al tocarlo el celular ofrece sugerencias que se filtran
-// mientras se escribe (como un buscador), sin depender de librerías externas. Sirve
-// igual para catálogos cortos (11 SKU) que para el listado largo de SKU Pro.
-function opcionesDatalist(lista){
-  return (lista||[]).slice().sort((a,b)=>a.localeCompare(b,'es')).map(p=>'<option value="'+escAttr(p)+'">').join('');
+// ===== SELECTOR DE PRODUCTO: hoja desplegable con buscador (SKU / Premio) =====
+// Reemplaza el <select>/datalist nativo por una hoja propia (mismo patrón visual que
+// "Módulos de la visita"): se abre a pantalla completa con un buscador arriba y la
+// lista filtrable debajo. Funciona igual en Android y iPhone, cosa que el <datalist>
+// nativo no garantiza. Sirve tanto para el catálogo corto (11 SKU) como para el
+// listado largo de SKU Pro (~200) y para Premios.
+let comboItemsActuales = [];
+let comboOnPick = null;
+function triggerCombo(valor, campoLabel, onclickAttr, deshabilitado){
+  if(deshabilitado) return '<div class="select" style="display:flex;align-items:center;min-height:48px;cursor:not-allowed;background:#f6eeee;color:var(--muted)">Elige la marca primero</div>';
+  return '<div class="select" style="display:flex;align-items:center;min-height:48px;cursor:pointer;'+(valor?'':'color:var(--muted)')+'" onclick="'+onclickAttr+'">'+(valor?escHtml(valor):'Selecciona '+campoLabel.toLowerCase())+'</div>';
 }
-function campoProducto(p, lista, campoLabel, onChangeFn){
-  const dlId='dl_'+p.id;
-  return '<div class="field" style="margin-bottom:0"><label class="label label-req">'+campoLabel+'</label>'
-    +'<input type="text" class="input" list="'+dlId+'" autocomplete="off" placeholder="Buscar '+campoLabel.toLowerCase()+'..." value="'+escAttr(p.producto||'')+'" oninput="'+onChangeFn+'(\''+p.id+'\',this.value)">'
-    +'<datalist id="'+dlId+'">'+opcionesDatalist(lista)+'</datalist></div>';
+function mostrarCombo(titulo, lista, onPick){
+  comboItemsActuales = (lista||[]).slice().sort((a,b)=>a.localeCompare(b,'es'));
+  comboOnPick = onPick;
+  document.getElementById('combosheetTitulo').textContent = titulo;
+  const buscador=document.getElementById('comboSearch'); buscador.value='';
+  renderComboLista(comboItemsActuales);
+  document.getElementById('combosheet').classList.add('open');
+  document.getElementById('combosheetBd').classList.add('open');
+  setTimeout(()=>buscador.focus(), 220);
+}
+function cerrarCombo(){
+  document.getElementById('combosheet').classList.remove('open');
+  document.getElementById('combosheetBd').classList.remove('open');
+  comboOnPick=null;
+}
+function filtrarCombo(){
+  const q=(document.getElementById('comboSearch').value||'').trim().toLowerCase();
+  renderComboLista(q ? comboItemsActuales.filter(x=>x.toLowerCase().includes(q)) : comboItemsActuales);
+}
+function renderComboLista(items){
+  const cont=document.getElementById('comboLista');
+  cont.innerHTML = items.length===0 ? '<div class="empty-hint">Sin resultados</div>'
+    : items.map(x=>'<div class="combo-item" data-value="'+escAttr(x)+'">'+escHtml(x)+'</div>').join('');
+}
+function seleccionarCombo(valor){
+  const fn=comboOnPick;
+  cerrarCombo();
+  if(fn) fn(valor);
 }
 function findItem(id){ return ventasList.find(x=>x.id===id) || premiosList.find(x=>x.id===id) || redencionesList.find(x=>x.id===id); }
 function setCantidad(id,v){ const p=findItem(id); if(p) p.cantidad=parseFloat(v)||0; }
@@ -1023,7 +1098,6 @@ function setCantidad(id,v){ const p=findItem(id); if(p) p.cantidad=parseFloat(v)
 // ===== VENTAS (catálogo estándar o SKU Pro en cascada según usuario especial) =====
 function agregarVenta(){ ventasList.push({id:uid('v'),categoria:'',marca:'',producto:'',ean:'',cantidad:1}); renderVentas(); }
 function eliminarVenta(id){ ventasList=ventasList.filter(x=>x.id!==id); renderVentas(); }
-function setProductoVenta(id,v){ const p=ventasList.find(x=>x.id===id); if(p) p.producto=v; }
 function setCategoriaVenta(id,v){ const p=ventasList.find(x=>x.id===id); if(p){ p.categoria=v; p.marca=''; p.producto=''; p.ean=''; } renderVentas(); }
 function setMarcaVenta(id,v){ const p=ventasList.find(x=>x.id===id); if(p){ p.marca=v; p.producto=''; p.ean=''; } renderVentas(); }
 function opcionesCategoriaPro(sel){
@@ -1036,30 +1110,44 @@ function opcionesMarcaPro(categoria, sel){
 function listaProductoPro(categoria, marca){
   return (categoria && marca && parametrizacion.skuProCascada[categoria] && parametrizacion.skuProCascada[categoria][marca]) ? parametrizacion.skuProCascada[categoria][marca] : [];
 }
-function opcionesDatalistPro(lista){
-  return lista.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')).map(p=>'<option value="'+escAttr(p.nombre)+'">').join('');
+function abrirComboProducto(tipo, id){
+  if(tipo==='ventas'){
+    const p=ventasList.find(x=>x.id===id); if(!p) return;
+    if(esUsuarioEspecial){
+      const lista=listaProductoPro(p.categoria,p.marca).map(x=>x.nombre);
+      mostrarCombo('Producto', lista, (v)=>{
+        const match=listaProductoPro(p.categoria,p.marca).find(x=>x.nombre===v);
+        p.producto=v; p.ean=match?match.ean:''; renderVentas();
+      });
+    } else {
+      mostrarCombo('Producto', parametrizacion.skus, (v)=>{ p.producto=v; renderVentas(); });
+    }
+  } else if(tipo==='premio'){
+    const p=premiosList.find(x=>x.id===id); if(!p) return;
+    mostrarCombo('Premio', parametrizacion.premios, (v)=>{ p.producto=v; renderPremios(); });
+  } else if(tipo==='redencion'){
+    const p=redencionesList.find(x=>x.id===id); if(!p) return;
+    mostrarCombo('Premio entregado', parametrizacion.premios, (v)=>{ p.producto=v; renderRedenciones(); });
+  }
 }
-function buscarProductoVentaPro(id,v){
-  const p=ventasList.find(x=>x.id===id); if(!p) return;
-  p.producto=v;
-  const match=listaProductoPro(p.categoria,p.marca).find(x=>x.nombre===v);
-  p.ean=match?match.ean:'';
+function campoProducto(p, campoLabel, tipo){
+  return '<div class="field" style="margin-bottom:0"><label class="label label-req">'+campoLabel+'</label>'
+    + triggerCombo(p.producto, campoLabel, 'abrirComboProducto(\''+tipo+'\',\''+p.id+'\')', false)
+    + '</div>';
 }
 function campoProductoCascada(p){
-  const listaProd=listaProductoPro(p.categoria,p.marca);
-  const dlId='dlp_'+p.id;
   return '<div class="field"><label class="label label-req">Categoría</label><select class="select" onchange="setCategoriaVenta(\''+p.id+'\',this.value)">'+opcionesCategoriaPro(p.categoria)+'</select></div>'+
     '<div class="field"><label class="label label-req">Marca</label><select class="select" onchange="setMarcaVenta(\''+p.id+'\',this.value)"'+(p.categoria?'':' disabled')+'>'+opcionesMarcaPro(p.categoria,p.marca)+'</select></div>'+
     '<div class="field" style="margin-bottom:0"><label class="label label-req">Producto</label>'
-      +'<input type="text" class="input" list="'+dlId+'" autocomplete="off" placeholder="Buscar producto..." value="'+escAttr(p.producto||'')+'"'+(p.marca?'':' disabled')+' oninput="buscarProductoVentaPro(\''+p.id+'\',this.value)">'
-      +'<datalist id="'+dlId+'">'+opcionesDatalistPro(listaProd)+'</datalist></div>';
+    + triggerCombo(p.producto, 'Producto', 'abrirComboProducto(\'ventas\',\''+p.id+'\')', !p.marca)
+    + '</div>';
 }
 function renderVentas(){
   const cont=document.getElementById('listaVentas'); if(!cont) return; cont.innerHTML='';
   if(ventasList.length===0){ cont.innerHTML='<div class="empty-hint">Agrega los productos vendidos.</div>'; return; }
   ventasList.forEach((p,idx)=>{ const d=document.createElement('div'); d.className='item'; d.innerHTML=`
     <div class="item-head"><div class="item-title"><svg class="icon icon-sm"><use href="#i-cart"/></svg>Vendido ${idx+1}</div><button type="button" class="btn btn-danger btn-icon" onclick="eliminarVenta('${p.id}')"><svg class="icon icon-sm"><use href="#i-trash"/></svg></button></div>
-    ${esUsuarioEspecial ? campoProductoCascada(p) : campoProducto(p, parametrizacion.skus, 'Producto', 'setProductoVenta')}
+    ${esUsuarioEspecial ? campoProductoCascada(p) : campoProducto(p, 'Producto', 'ventas')}
     <div class="field" style="margin-bottom:0;margin-top:11px"><label class="label label-req">Cantidad</label><input type="number" class="input" min="1" value="${p.cantidad}" oninput="setCantidad('${p.id}',this.value)"></div>`; cont.appendChild(d); });
 }
 function onVentaChange(){ const v=(document.querySelector('input[name="ventaRealizada"]:checked')||{}).value; document.getElementById('ventaNo').style.display=v==='No'?'block':'none'; document.getElementById('ventaSi').style.display=v==='Si'?'block':'none'; if(v==='Si'&&ventasList.length===0&&!restaurando) agregarVenta(); }
@@ -1067,13 +1155,12 @@ function onVentaChange(){ const v=(document.querySelector('input[name="ventaReal
 // ===== PREMIOS =====
 function agregarPremio(){ premiosList.push({id:uid('p'),producto:'',cantidad:1}); renderPremios(); }
 function eliminarPremio(id){ premiosList=premiosList.filter(x=>x.id!==id); renderPremios(); }
-function setProductoPremio(id,v){ const p=premiosList.find(x=>x.id===id); if(p) p.producto=v; }
 function renderPremios(){
   const cont=document.getElementById('listaPremios'); if(!cont) return; cont.innerHTML='';
   if(premiosList.length===0){ cont.innerHTML='<div class="empty-hint">Agrega los premios recibidos.</div>'; return; }
   premiosList.forEach((p,idx)=>{ const d=document.createElement('div'); d.className='item'; d.innerHTML=`
     <div class="item-head"><div class="item-title"><svg class="icon icon-sm"><use href="#i-box"/></svg>Premio ${idx+1}</div><button type="button" class="btn btn-danger btn-icon" onclick="eliminarPremio('${p.id}')"><svg class="icon icon-sm"><use href="#i-trash"/></svg></button></div>
-    ${campoProducto(p, parametrizacion.premios, 'Premio', 'setProductoPremio')}
+    ${campoProducto(p, 'Premio', 'premio')}
     <div class="field" style="margin-bottom:0;margin-top:11px"><label class="label label-req">Cantidad recibida</label><input type="number" class="input" min="1" value="${p.cantidad}" oninput="setCantidad('${p.id}',this.value)"></div>`; cont.appendChild(d); });
 }
 
@@ -1102,14 +1189,13 @@ function renderInventarioPremios(){
 // ===== REDENCIONES =====
 function agregarRedencion(){ redencionesList.push({id:uid('r'),producto:'',cantidad:1,beneficiario:''}); renderRedenciones(); }
 function eliminarRedencion(id){ redencionesList=redencionesList.filter(x=>x.id!==id); renderRedenciones(); }
-function setProductoRedencion(id,v){ const p=redencionesList.find(x=>x.id===id); if(p) p.producto=v; }
 function setBeneficiario(id,v){ const p=redencionesList.find(x=>x.id===id); if(p) p.beneficiario=v; }
 function renderRedenciones(){
   const cont=document.getElementById('listaRedenciones'); if(!cont) return; cont.innerHTML='';
   if(redencionesList.length===0){ cont.innerHTML='<div class="empty-hint">Agrega el premio entregado.</div>'; return; }
   redencionesList.forEach((p,idx)=>{ const d=document.createElement('div'); d.className='item'; d.innerHTML=`
     <div class="item-head"><div class="item-title"><svg class="icon icon-sm"><use href="#i-gift"/></svg>Redención ${idx+1}</div><button type="button" class="btn btn-danger btn-icon" onclick="eliminarRedencion('${p.id}')"><svg class="icon icon-sm"><use href="#i-trash"/></svg></button></div>
-    ${campoProducto(p, parametrizacion.premios, 'Premio entregado', 'setProductoRedencion')}
+    ${campoProducto(p, 'Premio entregado', 'redencion')}
     <div class="field" style="margin-top:11px"><label class="label label-req">Cantidad</label><input type="number" class="input" min="1" value="${p.cantidad}" oninput="setCantidad('${p.id}',this.value)"></div>
     <div class="field" style="margin-bottom:0"><label class="label">Beneficiario (opcional)</label><input type="text" class="input" placeholder="Nombre del consumidor" value="${escAttr(p.beneficiario)}" oninput="setBeneficiario('${p.id}',this.value)"></div>`; cont.appendChild(d); });
 }
