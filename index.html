@@ -723,9 +723,18 @@ function onIdentChange(){
 }
 
 // ===== USUARIO ESPECIAL (catálogo de ventas) =====
+// Decisión por LISTA (de dónde salió el asesor seleccionado: "Usuarios" o "Usuarios
+// Especiales"), no por una segunda búsqueda del documento. asesorSel.especial ya viene
+// marcado correctamente desde cargarAsesores()/onAsesorChange() según esa lista, así
+// que es la única fuente de verdad aquí — evita que un documento repetido o mal
+// tipeado entre las dos hojas mezcle los catálogos (11 SKU vs SKU Pro).
 function actualizarUsuarioEspecial(){
-  const doc = (getAsesorDocumento()||'').toString().trim();
-  esUsuarioEspecial = !!doc && (parametrizacion.documentosEspeciales||[]).indexOf(doc) !== -1;
+  if(!modoManual && asesorSel && asesorSel.nombre){
+    esUsuarioEspecial = !!asesorSel.especial;
+  } else {
+    const doc = (getAsesorDocumento()||'').toString().trim();
+    esUsuarioEspecial = !!doc && (parametrizacion.documentosEspeciales||[]).indexOf(doc) !== -1;
+  }
   const chip = document.getElementById('chipCatalogo');
   const pCat = document.getElementById('pCatalogo');
   const texto = esUsuarioEspecial ? 'Catálogo completo (SKU Pro)' : 'Catálogo estándar (11 SKU)';
@@ -995,12 +1004,18 @@ function cargarPDVsPorCiudad(ciudad){
 }
 function poblarProductos(){ renderVentas(); renderPremios(); renderRedenciones(); renderInventarioPremios(); }
 
-// ===== SELECT SIMPLE DE PRODUCTO (SKU / Premio) =====
-function opcionesProducto(lista, seleccionado){
-  return '<option value="">Selecciona el producto</option>'+(lista||[]).slice().sort((a,b)=>a.localeCompare(b,'es')).map(p=>'<option value="'+escAttr(p)+'"'+(p===seleccionado?' selected':'')+'>'+escHtml(p)+'</option>').join('');
+// ===== BUSCADOR DE PRODUCTO (SKU / Premio) =====
+// Input de texto + <datalist>: al tocarlo el celular ofrece sugerencias que se filtran
+// mientras se escribe (como un buscador), sin depender de librerías externas. Sirve
+// igual para catálogos cortos (11 SKU) que para el listado largo de SKU Pro.
+function opcionesDatalist(lista){
+  return (lista||[]).slice().sort((a,b)=>a.localeCompare(b,'es')).map(p=>'<option value="'+escAttr(p)+'">').join('');
 }
 function campoProducto(p, lista, campoLabel, onChangeFn){
-  return '<div class="field" style="margin-bottom:0"><label class="label label-req">'+campoLabel+'</label><select class="select" onchange="'+onChangeFn+'(\''+p.id+'\',this.value)">'+opcionesProducto(lista,p.producto)+'</select></div>';
+  const dlId='dl_'+p.id;
+  return '<div class="field" style="margin-bottom:0"><label class="label label-req">'+campoLabel+'</label>'
+    +'<input type="text" class="input" list="'+dlId+'" autocomplete="off" placeholder="Buscar '+campoLabel.toLowerCase()+'..." value="'+escAttr(p.producto||'')+'" oninput="'+onChangeFn+'(\''+p.id+'\',this.value)">'
+    +'<datalist id="'+dlId+'">'+opcionesDatalist(lista)+'</datalist></div>';
 }
 function findItem(id){ return ventasList.find(x=>x.id===id) || premiosList.find(x=>x.id===id) || redencionesList.find(x=>x.id===id); }
 function setCantidad(id,v){ const p=findItem(id); if(p) p.cantidad=parseFloat(v)||0; }
@@ -1011,7 +1026,6 @@ function eliminarVenta(id){ ventasList=ventasList.filter(x=>x.id!==id); renderVe
 function setProductoVenta(id,v){ const p=ventasList.find(x=>x.id===id); if(p) p.producto=v; }
 function setCategoriaVenta(id,v){ const p=ventasList.find(x=>x.id===id); if(p){ p.categoria=v; p.marca=''; p.producto=''; p.ean=''; } renderVentas(); }
 function setMarcaVenta(id,v){ const p=ventasList.find(x=>x.id===id); if(p){ p.marca=v; p.producto=''; p.ean=''; } renderVentas(); }
-function setProductoVentaPro(id,v,ean){ const p=ventasList.find(x=>x.id===id); if(p){ p.producto=v; p.ean=ean||''; } }
 function opcionesCategoriaPro(sel){
   return '<option value="">Selecciona categoría</option>'+(parametrizacion.categoriasSkuPro||[]).slice().sort((a,b)=>a.localeCompare(b,'es')).map(c=>'<option value="'+escAttr(c)+'"'+(c===sel?' selected':'')+'>'+escHtml(c)+'</option>').join('');
 }
@@ -1019,14 +1033,26 @@ function opcionesMarcaPro(categoria, sel){
   const marcas = (categoria && parametrizacion.skuProCascada[categoria]) ? Object.keys(parametrizacion.skuProCascada[categoria]) : [];
   return '<option value="">Selecciona marca</option>'+marcas.slice().sort((a,b)=>a.localeCompare(b,'es')).map(m=>'<option value="'+escAttr(m)+'"'+(m===sel?' selected':'')+'>'+escHtml(m||'(Sin marca)')+'</option>').join('');
 }
-function opcionesProductoPro(categoria, marca, sel){
-  const lista = (categoria && marca && parametrizacion.skuProCascada[categoria] && parametrizacion.skuProCascada[categoria][marca]) ? parametrizacion.skuProCascada[categoria][marca] : [];
-  return '<option value="">Selecciona producto</option>'+lista.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')).map(p=>'<option value="'+escAttr(p.nombre)+'" data-ean="'+escAttr(p.ean)+'"'+(p.nombre===sel?' selected':'')+'>'+escHtml(p.nombre)+'</option>').join('');
+function listaProductoPro(categoria, marca){
+  return (categoria && marca && parametrizacion.skuProCascada[categoria] && parametrizacion.skuProCascada[categoria][marca]) ? parametrizacion.skuProCascada[categoria][marca] : [];
+}
+function opcionesDatalistPro(lista){
+  return lista.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')).map(p=>'<option value="'+escAttr(p.nombre)+'">').join('');
+}
+function buscarProductoVentaPro(id,v){
+  const p=ventasList.find(x=>x.id===id); if(!p) return;
+  p.producto=v;
+  const match=listaProductoPro(p.categoria,p.marca).find(x=>x.nombre===v);
+  p.ean=match?match.ean:'';
 }
 function campoProductoCascada(p){
+  const listaProd=listaProductoPro(p.categoria,p.marca);
+  const dlId='dlp_'+p.id;
   return '<div class="field"><label class="label label-req">Categoría</label><select class="select" onchange="setCategoriaVenta(\''+p.id+'\',this.value)">'+opcionesCategoriaPro(p.categoria)+'</select></div>'+
     '<div class="field"><label class="label label-req">Marca</label><select class="select" onchange="setMarcaVenta(\''+p.id+'\',this.value)"'+(p.categoria?'':' disabled')+'>'+opcionesMarcaPro(p.categoria,p.marca)+'</select></div>'+
-    '<div class="field" style="margin-bottom:0"><label class="label label-req">Producto</label><select class="select" onchange="setProductoVentaPro(\''+p.id+'\',this.value,this.selectedOptions[0]?this.selectedOptions[0].getAttribute(\'data-ean\'):\'\')"'+(p.marca?'':' disabled')+'>'+opcionesProductoPro(p.categoria,p.marca,p.producto)+'</select></div>';
+    '<div class="field" style="margin-bottom:0"><label class="label label-req">Producto</label>'
+      +'<input type="text" class="input" list="'+dlId+'" autocomplete="off" placeholder="Buscar producto..." value="'+escAttr(p.producto||'')+'"'+(p.marca?'':' disabled')+' oninput="buscarProductoVentaPro(\''+p.id+'\',this.value)">'
+      +'<datalist id="'+dlId+'">'+opcionesDatalistPro(listaProd)+'</datalist></div>';
 }
 function renderVentas(){
   const cont=document.getElementById('listaVentas'); if(!cont) return; cont.innerHTML='';
@@ -1311,6 +1337,7 @@ function restaurarSesion(){
   restaurando=true;
   const g=d.campos;
   asesorSel=d.asesorSel||{nombre:'',documento:'',telefono:''};
+  actualizarUsuarioEspecial(); /* antes de pintar Ventas: si no, el catálogo se renderiza con el valor por defecto */
   pendAsesorNombre=g.asesorNombre||''; pendPDV=g.puntoVenta||''; pendCiudad=g.ciudad||'';
   if(modoManual){
     document.getElementById('asesorNombreTexto').value=asesorSel.nombre;
