@@ -265,7 +265,6 @@
   <symbol id="i-camera" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></symbol>
   <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></symbol>
   <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></symbol>
-  <symbol id="i-gift" viewBox="0 0 24 24"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
   <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></symbol>
@@ -479,28 +478,6 @@
     </div>
   </section>
 
-  <!-- REDENCIONES -->
-  <section class="mod" data-mod="redenciones">
-    <div class="card">
-      <div class="card-head">
-        <div class="card-chip"><svg class="icon icon-lg"><use href="#i-gift"/></svg></div>
-        <div class="card-head-text"><div class="card-title">Redenciones</div><div class="card-sub">Premios entregados a consumidores</div></div>
-        <span class="saved-badge" id="badge-redenciones"><svg class="icon icon-sm"><use href="#i-check"/></svg>Guardado</span>
-      </div>
-      <div id="listaRedenciones"></div>
-      <button type="button" class="btn btn-soft btn-block" onclick="agregarRedencion()"><svg class="icon icon-sm"><use href="#i-plus"/></svg>Agregar redención</button>
-      <div class="field" style="margin-top:16px"><label class="label" for="redencionesObservaciones">Observaciones</label><textarea id="redencionesObservaciones" class="textarea" placeholder="Notas sobre las redenciones"></textarea></div>
-      <div class="field" style="margin-bottom:0"><label class="label">Foto de la redención</label>
-        <div class="upload upload-mini" id="uploadRedencion">
-          <input type="file" id="fileRedencion" accept="image/*" capture="environment">
-          <div id="defRedencion"><div class="upload-ic"><svg class="icon"><use href="#i-camera"/></svg></div><div class="upload-t">Tomar / subir foto</div></div>
-          <div id="prevRedencion" style="display:none"><img id="imgRedencion" class="preview-img"><div class="preview-act"><button type="button" class="btn btn-outline btn-sm" onclick="event.stopPropagation();document.getElementById('fileRedencion').click()"><svg class="icon icon-sm"><use href="#i-upload"/></svg>Cambiar</button><button type="button" class="btn btn-danger btn-sm" onclick="event.stopPropagation();quitarFoto('redencion')"><svg class="icon icon-sm"><use href="#i-trash"/></svg>Quitar</button></div></div>
-        </div>
-      </div>
-      <div class="save-row"><button class="btn btn-primary btn-block" onclick="guardarModulo('redenciones')"><svg class="icon"><use href="#i-save"/></svg>Guardar Redenciones</button></div>
-    </div>
-  </section>
-
   <!-- ACTIVIDAD DE LA COMPETENCIA -->
   <section class="mod" data-mod="competencia">
     <div class="card">
@@ -639,7 +616,6 @@ const MODS = [
   {id:'ventas',      icon:'i-cart',   label:'Ventas',      gate:true},
   {id:'premios',     icon:'i-box',    label:'Premios',     gate:true},
   {id:'voz',         icon:'i-chat',   label:'Voz Cons.',   gate:true},
-  {id:'redenciones', icon:'i-gift',   label:'Redenc.',     gate:true},
   {id:'competencia', icon:'i-search', label:'Competencia', gate:true},
   {id:'salida',      icon:'i-list',   label:'Salida',      gate:true}
 ];
@@ -669,8 +645,7 @@ let esUsuarioEspecial = false;
 let fotoIngreso = '', fotoIngresoURL = '';
 let fotoSalida = '', fotoSalidaURL = '';
 let fotoPremios = '', fotoPremiosURL = '';
-let fotoRedencion = '', fotoRedencionURL = '';
-let ventasList = [], premiosList = [], vozList = [], redencionesList = [], competenciaList = [], premiosInventarioActual = [];
+let ventasList = [], premiosList = [], vozList = [], competenciaList = [], premiosInventarioActual = [];
 let asesorSel = { nombre:'', documento:'', telefono:'' };
 let pendAsesorNombre = null, pendPDV = null, pendCiudad = null;
 let registroPromise = null;
@@ -687,7 +662,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('fileIngreso').addEventListener('change', e => leerFotoSimple(e, 'ingreso'));
   document.getElementById('fileSalida').addEventListener('change', e => leerFotoSimple(e, 'salida'));
   document.getElementById('filePremios').addEventListener('change', e => leerFotoSimple(e, 'premios'));
-  document.getElementById('fileRedencion').addEventListener('change', e => leerFotoSimple(e, 'redencion'));
 
   let pt; const persistDeb = () => { clearTimeout(pt); pt=setTimeout(persistir, 600); };
   document.addEventListener('input', persistDeb);
@@ -866,15 +840,13 @@ function aplicarGestionRemota(registroIdRecuperado, g){
   if(g.ventaMotivoNo!=null){ const el=document.getElementById('ventaMotivoNo'); if(el) el.value=g.ventaMotivoNo; }
   setRadio('competenciaHayActividad', g.competenciaHayActividad); onCompetenciaChange();
   const darId=list=>(list||[]).map(it=>Object.assign({id:uid('r')},it));
-  ventasList=darId(g.ventaProductos); premiosList=darId(g.premiosRecibidos); vozList=darId(g.vozConsumidor); redencionesList=darId(g.redencionesRealizadas); competenciaList=darId(g.competenciaEvidencias);
+  ventasList=darId(g.ventaProductos); premiosList=darId(g.premiosRecibidos); vozList=darId(g.vozConsumidor); competenciaList=darId(g.competenciaEvidencias);
   premiosInventarioActual = Array.isArray(g.premiosInventarioActual) ? g.premiosInventarioActual.slice() : [];
-  renderVentas(); renderPremios(); renderVoz(); renderRedenciones(); renderCompetencia(); renderInventarioPremios();
+  renderVentas(); renderPremios(); renderVoz(); renderCompetencia(); renderInventarioPremios();
   document.getElementById('premiosObservaciones').value=g.premiosObservaciones||'';
-  document.getElementById('redencionesObservaciones').value=g.redencionesObservaciones||'';
   fotoIngreso=''; fotoIngresoURL=g.fotoIngresoURL||''; aplicarFoto('ingreso', fotoIngresoURL);
   fotoSalida=''; fotoSalidaURL=g.fotoSalidaURL||''; aplicarFoto('salida', fotoSalidaURL);
   fotoPremios=''; fotoPremiosURL=g.fotoPremiosURL||''; aplicarFoto('premios', fotoPremiosURL);
-  fotoRedencion=''; fotoRedencionURL=g.fotoRedencionURL||''; aplicarFoto('redencion', fotoRedencionURL);
   ubicacion = { lat:g.latitud||null, lng:g.longitud||null, acc:g.precisionGPS||null };
   aplicarUbicacionUI();
   document.getElementById('observacionesGenerales').value=g.observacionesGenerales||'';
@@ -1049,7 +1021,7 @@ function cargarPDVsPorCiudad(ciudad){
   s.innerHTML='<option value="">Selecciona el punto de venta</option>'+lista.slice().sort((a,b)=>a.localeCompare(b,'es')).map(p=>'<option value="'+escAttr(p)+'">'+escHtml(p)+'</option>').join('');
   if(actual && lista.indexOf(actual)!==-1) s.value=actual;
 }
-function poblarProductos(){ renderVentas(); renderPremios(); renderRedenciones(); renderInventarioPremios(); }
+function poblarProductos(){ renderVentas(); renderPremios(); renderInventarioPremios(); }
 
 // ===== SELECTOR DE PRODUCTO: hoja desplegable con buscador (SKU / Premio) =====
 // Reemplaza el <select>/datalist nativo por una hoja propia (mismo patrón visual que
@@ -1092,7 +1064,7 @@ function seleccionarCombo(valor){
   cerrarCombo();
   if(fn) fn(valor);
 }
-function findItem(id){ return ventasList.find(x=>x.id===id) || premiosList.find(x=>x.id===id) || redencionesList.find(x=>x.id===id); }
+function findItem(id){ return ventasList.find(x=>x.id===id) || premiosList.find(x=>x.id===id); }
 function setCantidad(id,v){ const p=findItem(id); if(p) p.cantidad=parseFloat(v)||0; }
 
 // ===== VENTAS (catálogo estándar o SKU Pro en cascada según usuario especial) =====
@@ -1125,9 +1097,6 @@ function abrirComboProducto(tipo, id){
   } else if(tipo==='premio'){
     const p=premiosList.find(x=>x.id===id); if(!p) return;
     mostrarCombo('Premio', parametrizacion.premios, (v)=>{ p.producto=v; renderPremios(); });
-  } else if(tipo==='redencion'){
-    const p=redencionesList.find(x=>x.id===id); if(!p) return;
-    mostrarCombo('Premio entregado', parametrizacion.premios, (v)=>{ p.producto=v; renderRedenciones(); });
   }
 }
 function campoProducto(p, campoLabel, tipo){
@@ -1184,20 +1153,6 @@ function renderInventarioPremios(){
     input.addEventListener('input', () => { it.cantidadActual = input.value; });
     cont.appendChild(row);
   });
-}
-
-// ===== REDENCIONES =====
-function agregarRedencion(){ redencionesList.push({id:uid('r'),producto:'',cantidad:1,beneficiario:''}); renderRedenciones(); }
-function eliminarRedencion(id){ redencionesList=redencionesList.filter(x=>x.id!==id); renderRedenciones(); }
-function setBeneficiario(id,v){ const p=redencionesList.find(x=>x.id===id); if(p) p.beneficiario=v; }
-function renderRedenciones(){
-  const cont=document.getElementById('listaRedenciones'); if(!cont) return; cont.innerHTML='';
-  if(redencionesList.length===0){ cont.innerHTML='<div class="empty-hint">Agrega el premio entregado.</div>'; return; }
-  redencionesList.forEach((p,idx)=>{ const d=document.createElement('div'); d.className='item'; d.innerHTML=`
-    <div class="item-head"><div class="item-title"><svg class="icon icon-sm"><use href="#i-gift"/></svg>Redención ${idx+1}</div><button type="button" class="btn btn-danger btn-icon" onclick="eliminarRedencion('${p.id}')"><svg class="icon icon-sm"><use href="#i-trash"/></svg></button></div>
-    ${campoProducto(p, 'Premio entregado', 'redencion')}
-    <div class="field" style="margin-top:11px"><label class="label label-req">Cantidad</label><input type="number" class="input" min="1" value="${p.cantidad}" oninput="setCantidad('${p.id}',this.value)"></div>
-    <div class="field" style="margin-bottom:0"><label class="label">Beneficiario (opcional)</label><input type="text" class="input" placeholder="Nombre del consumidor" value="${escAttr(p.beneficiario)}" oninput="setBeneficiario('${p.id}',this.value)"></div>`; cont.appendChild(d); });
 }
 
 // ===== VOZ DEL CONSUMIDOR (encuesta completa por consumidor entrevistado) =====
@@ -1299,12 +1254,11 @@ function leerFotoEvidencia(e, itemId){
 }
 function onCompetenciaChange(){ const v=(document.querySelector('input[name="competenciaHayActividad"]:checked')||{}).value; document.getElementById('competenciaSi').style.display=v==='Si'?'block':'none'; if(v==='Si'&&competenciaList.length===0&&!restaurando) agregarEvidenciaCompetencia(); }
 
-// ===== FOTOS SIMPLES (ingreso / salida / premios / redención) =====
+// ===== FOTOS SIMPLES (ingreso / salida / premios) =====
 const FOTO_VARS = {
   ingreso: { get:()=>fotoIngreso, set:v=>fotoIngreso=v, getURL:()=>fotoIngresoURL, setURL:v=>fotoIngresoURL=v },
   salida: { get:()=>fotoSalida, set:v=>fotoSalida=v, getURL:()=>fotoSalidaURL, setURL:v=>fotoSalidaURL=v },
-  premios: { get:()=>fotoPremios, set:v=>fotoPremios=v, getURL:()=>fotoPremiosURL, setURL:v=>fotoPremiosURL=v },
-  redencion: { get:()=>fotoRedencion, set:v=>fotoRedencion=v, getURL:()=>fotoRedencionURL, setURL:v=>fotoRedencionURL=v }
+  premios: { get:()=>fotoPremios, set:v=>fotoPremios=v, getURL:()=>fotoPremiosURL, setURL:v=>fotoPremiosURL=v }
 };
 function aplicarFoto(clave, data){
   if(!data) return;
@@ -1328,7 +1282,6 @@ function leerFotoSimple(e, clave){
     if(clave==='ingreso'){ fotoIngreso=data; fotoIngresoURL=''; }
     if(clave==='salida'){ fotoSalida=data; fotoSalidaURL=''; }
     if(clave==='premios'){ fotoPremios=data; fotoPremiosURL=''; }
-    if(clave==='redencion'){ fotoRedencion=data; fotoRedencionURL=''; }
     aplicarFoto(clave, data);
     persistir(); persistirFotos();
   });
@@ -1338,7 +1291,6 @@ function quitarFoto(clave){
   if(clave==='ingreso'){ fotoIngreso=''; fotoIngresoURL=''; document.getElementById('fileIngreso').value=''; }
   if(clave==='salida'){ fotoSalida=''; fotoSalidaURL=''; document.getElementById('fileSalida').value=''; }
   if(clave==='premios'){ fotoPremios=''; fotoPremiosURL=''; document.getElementById('filePremios').value=''; }
-  if(clave==='redencion'){ fotoRedencion=''; fotoRedencionURL=''; document.getElementById('fileRedencion').value=''; }
   const def=document.getElementById('def'+capitaliza(clave));
   const prev=document.getElementById('prev'+capitaliza(clave));
   const up=document.getElementById('upload'+capitaliza(clave));
@@ -1399,18 +1351,18 @@ function cerrarPersona(){ document.getElementById('personaModal').classList.remo
 function persistir(){
   if(restaurando) return;
   try{
-    const campos=recolectarGestion(); campos.fotoIngreso=''; campos.fotoSalida=''; campos.fotoPremios=''; campos.fotoRedencion='';
+    const campos=recolectarGestion(); campos.fotoIngreso=''; campos.fotoSalida=''; campos.fotoPremios='';
     if(Array.isArray(campos.competenciaEvidencias)) campos.competenciaEvidencias=campos.competenciaEvidencias.map(ev=>Object.assign({},ev,{foto:''}));
     const data={ loggedIn:true, guardadoEn:Date.now(), registroId, saved, current, ubicacion, esUsuarioEspecial,
-      fotoIngresoURL, fotoSalidaURL, fotoPremiosURL, fotoRedencionURL, campos, asesorSel,
-      listas:{ ventasList, premiosList, vozList, redencionesList, premiosInventarioActual, competenciaList: competenciaList.map(ev=>Object.assign({},ev,{foto:''})) } };
+      fotoIngresoURL, fotoSalidaURL, fotoPremiosURL, campos, asesorSel,
+      listas:{ ventasList, premiosList, vozList, premiosInventarioActual, competenciaList: competenciaList.map(ev=>Object.assign({},ev,{foto:''})) } };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
   }catch(e){}
 }
 function persistirFotos(){
   try{
     const competenciaFotos={}; competenciaList.forEach(ev=>{ if(ev.foto) competenciaFotos[ev.id]=ev.foto; });
-    localStorage.setItem(LS_FOTOS, JSON.stringify({ fotoIngreso, fotoSalida, fotoPremios, fotoRedencion, competenciaFotos }));
+    localStorage.setItem(LS_FOTOS, JSON.stringify({ fotoIngreso, fotoSalida, fotoPremios, competenciaFotos }));
   }catch(e){}
 }
 function limpiarSesionLocal(){ try{ localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_FOTOS); }catch(e){} }
@@ -1436,18 +1388,16 @@ function restaurarSesion(){
   if(g.ventaMotivoNo!=null){ const el=document.getElementById('ventaMotivoNo'); if(el) el.value=g.ventaMotivoNo; }
   setRadio('competenciaHayActividad', g.competenciaHayActividad); onCompetenciaChange();
   const L=d.listas||{};
-  ventasList=L.ventasList||[]; premiosList=L.premiosList||[]; vozList=L.vozList||[]; redencionesList=L.redencionesList||[]; competenciaList=L.competenciaList||[]; premiosInventarioActual=L.premiosInventarioActual||[];
-  renderVentas(); renderPremios(); renderVoz(); renderRedenciones(); renderCompetencia(); renderInventarioPremios();
+  ventasList=L.ventasList||[]; premiosList=L.premiosList||[]; vozList=L.vozList||[]; competenciaList=L.competenciaList||[]; premiosInventarioActual=L.premiosInventarioActual||[];
+  renderVentas(); renderPremios(); renderVoz(); renderCompetencia(); renderInventarioPremios();
   document.getElementById('premiosObservaciones').value=g.premiosObservaciones||'';
-  document.getElementById('redencionesObservaciones').value=g.redencionesObservaciones||'';
   ubicacion=d.ubicacion||{lat:null,lng:null,acc:null};
   aplicarUbicacionUI();
   let fotos={}; try{ fotos=JSON.parse(localStorage.getItem(LS_FOTOS)||'{}'); }catch(e){}
-  fotoIngresoURL=d.fotoIngresoURL||''; fotoSalidaURL=d.fotoSalidaURL||''; fotoPremiosURL=d.fotoPremiosURL||''; fotoRedencionURL=d.fotoRedencionURL||'';
+  fotoIngresoURL=d.fotoIngresoURL||''; fotoSalidaURL=d.fotoSalidaURL||''; fotoPremiosURL=d.fotoPremiosURL||'';
   if(fotos.fotoIngreso){ fotoIngreso=fotos.fotoIngreso; aplicarFoto('ingreso', fotos.fotoIngreso); } else if(fotoIngresoURL){ aplicarFoto('ingreso', fotoIngresoURL); }
   if(fotos.fotoSalida){ fotoSalida=fotos.fotoSalida; aplicarFoto('salida', fotos.fotoSalida); } else if(fotoSalidaURL){ aplicarFoto('salida', fotoSalidaURL); }
   if(fotos.fotoPremios){ fotoPremios=fotos.fotoPremios; aplicarFoto('premios', fotos.fotoPremios); } else if(fotoPremiosURL){ aplicarFoto('premios', fotoPremiosURL); }
-  if(fotos.fotoRedencion){ fotoRedencion=fotos.fotoRedencion; aplicarFoto('redencion', fotos.fotoRedencion); } else if(fotoRedencionURL){ aplicarFoto('redencion', fotoRedencionURL); }
   if(fotos.competenciaFotos){ competenciaList.forEach(ev=>{ if(fotos.competenciaFotos[ev.id]) ev.foto=fotos.competenciaFotos[ev.id]; }); renderCompetencia(); }
   document.getElementById('observacionesGenerales').value=g.observacionesGenerales||'';
   document.getElementById('proximaVisita').value=g.proximaVisita||'';
@@ -1494,9 +1444,6 @@ function validarModulo(id){
       if(!p.percepcionPunto) e.push('Percepción en el punto (consumidor '+(i+1)+')');
     });
   }
-  if(id==='redenciones'){
-    redencionesList.forEach((p,i)=>{ if(!p.producto) e.push('Premio entregado '+(i+1)); if(!p.cantidad||p.cantidad<1) e.push('Cantidad redimida '+(i+1)); });
-  }
   if(id==='competencia'){
     const v=(document.querySelector('input[name="competenciaHayActividad"]:checked')||{}).value;
     if(!v) e.push('¿Hay actividad de la competencia?');
@@ -1525,8 +1472,6 @@ function recolectarGestion(){
     premiosInventarioActual: premiosInventarioActual.map(it=>({producto:it.producto,cantidadActual:it.cantidadActual})),
     premiosObservaciones: val('premiosObservaciones'), fotoPremios: fotoPremios, fotoPremiosURL: fotoPremiosURL,
     vozConsumidor: vozList.map(p=>({tipoProductoPreferido:p.tipoProductoPreferido,conoceMarca:p.conoceMarca,canalesConocimiento:p.canalesConocimiento||[],canalOtro:p.canalOtro,usoMarca:p.usoMarca,opinionProductos:p.opinionProductos,tipoCabello:p.tipoCabello,atributosDeseados:p.atributosDeseados||[],atributosOtro:p.atributosOtro,percepcionPunto:p.percepcionPunto,mejoraria:p.mejoraria,productoComentado:p.productoComentado,edad:p.edad,genero:p.genero})),
-    redencionesRealizadas: redencionesList.map(p=>({producto:p.producto,cantidad:p.cantidad,beneficiario:p.beneficiario})),
-    redencionesObservaciones: val('redencionesObservaciones'), fotoRedencion: fotoRedencion, fotoRedencionURL: fotoRedencionURL,
     competenciaHayActividad: (document.querySelector('input[name="competenciaHayActividad"]:checked')||{}).value||'',
     competenciaEvidencias: competenciaList.map(p=>({marca:p.marca,tipo:p.tipo,descripcion:p.descripcion,foto:p.foto,fotoURL:p.fotoURL})),
     observacionesGenerales: val('observacionesGenerales'), proximaVisita: val('proximaVisita'),
@@ -1601,9 +1546,6 @@ function renderResumen(){
   }).join('') : '<div class="res-mini">Sin opiniones registradas</div>';
   h+=secRaw('i-chat','Voz del Consumidor ('+vozList.length+')', vozH);
 
-  const rH = redencionesList.length ? redencionesList.map((p,i)=>'<div class="res-mini">'+(i+1)+'. <b>'+(escHtml(p.producto)||'—')+'</b> · '+(p.cantidad||0)+' und'+(p.beneficiario?' · '+escHtml(p.beneficiario):'')+'</div>').join('') : '<div class="res-mini">Sin redenciones registradas</div>';
-  h+=secRaw('i-gift','Redenciones',rH);
-
   let coH='<div class="res-line"><span class="rk">¿Actividad de la competencia?</span><span class="rv">'+(competenciaR||'—')+'</span></div>';
   if(competenciaR==='Si'){ coH+=(competenciaList.length?competenciaList.map((p,i)=>'<div class="res-mini">'+(i+1)+'. <b>'+(escHtml(p.tipo)||'—')+'</b>'+(p.marca?' · '+escHtml(p.marca):'')+'</div>').join(''):'<div class="res-mini">Sin evidencias registradas</div>'); }
   h+=secRaw('i-search','Actividad de la Competencia',coH);
@@ -1655,7 +1597,6 @@ function generarTextoGestion(){
       if(p.genero) t+='      • Género: '+p.genero+'\n';
     });
   }
-  if(redencionesList.length){ t+='\n🎁 *REDENCIONES*\n'; redencionesList.forEach(p=>{ t+='   • '+(p.producto||'-')+'  _x'+(p.cantidad||0)+'_'+(p.beneficiario?' · '+p.beneficiario:'')+'\n'; }); }
   if(competenciaR==='Si'&&competenciaList.length){ t+='\n🔎 *ACTIVIDAD DE LA COMPETENCIA*\n'; competenciaList.forEach(p=>{ t+='   • '+(p.tipo||'-')+(p.marca?' · '+p.marca:'')+(p.descripcion?' — '+p.descripcion:'')+'\n'; }); }
   if(val('proximaVisita')) t+='\n📅 Próxima visita: '+val('proximaVisita')+'\n';
   if(val('observacionesGenerales')) t+='📝 '+val('observacionesGenerales')+'\n';
