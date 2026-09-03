@@ -1487,20 +1487,37 @@ async function guardarModulo(id, finalizar){
   saved[id]=true;
   gestion.modulosGuardados=Object.keys(saved).filter(k=>saved[k]).join(', ');
   if(finalizar) gestion.horaSalidaPDV=new Date().toString();
-  mostrarLoading(finalizar?'Finalizando gestión...':'Guardando '+(MODS.find(m=>m.id===id)||{}).label+'...');
-  try{
-    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({registroId:registroId,gestion:gestion,modulo:id}),redirect:'follow'});
-    const data=await res.json(); ocultarLoading();
-    if(data&&data.success){
-      registroId=data.registroId||registroId;
-      if(eraNuevo&&registroId) mostrarCodigoSesion();
-      if(data.fotoIngresoURL){ fotoIngresoURL=data.fotoIngresoURL; fotoIngreso=''; }
-      if(data.fotoSalidaURL){ fotoSalidaURL=data.fotoSalidaURL; fotoSalida=''; }
-      renderNav(); persistir();
-      if(finalizar){ mostrarExito(data); }
-      else { toast((MODS.find(m=>m.id===id)||{}).label+' guardado'); }
-    } else { saved[id]=false; alert('Error: '+(data&&data.error?data.error:'desconocido')); }
-  }catch(err){ saved[id]=false; ocultarLoading(); alert('Error de red: '+err.message); }
+  const tituloModulo=finalizar?'Finalizando gestión...':'Guardando '+(MODS.find(m=>m.id===id)||{}).label+'...';
+  mostrarLoading(tituloModulo);
+  // Reintenta solo ante fallas de RED/conexión (fetch rechazado, o respuesta que no es JSON
+  // válido — por ejemplo el celular recibe una página de error del operador en vez del JSON,
+  // muy común con 4G intermitente en campo). Un error de VALIDACIÓN del backend (data.success
+  // === false) no se reintenta, porque reintentar no lo va a arreglar.
+  const INTENTOS=3;
+  for(let intento=1; intento<=INTENTOS; intento++){
+    try{
+      const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({registroId:registroId,gestion:gestion,modulo:id}),redirect:'follow'});
+      const data=await res.json(); ocultarLoading();
+      if(data&&data.success){
+        registroId=data.registroId||registroId;
+        if(eraNuevo&&registroId) mostrarCodigoSesion();
+        if(data.fotoIngresoURL){ fotoIngresoURL=data.fotoIngresoURL; fotoIngreso=''; }
+        if(data.fotoSalidaURL){ fotoSalidaURL=data.fotoSalidaURL; fotoSalida=''; }
+        renderNav(); persistir();
+        if(finalizar){ mostrarExito(data); }
+        else { toast((MODS.find(m=>m.id===id)||{}).label+' guardado'); }
+      } else { saved[id]=false; persistir(); alert('Error: '+(data&&data.error?data.error:'desconocido')); }
+      return;
+    }catch(err){
+      if(intento===INTENTOS){
+        saved[id]=false; ocultarLoading(); persistir();
+        alert('No se pudo guardar por un problema de conexión (probablemente la señal). Tu información NO se perdió, sigue en el celular — revisa la señal e intenta guardar de nuevo.\n\nDetalle técnico: '+err.message);
+        return;
+      }
+      mostrarLoading(tituloModulo+' (reintentando, señal inestable... '+(intento+1)+'/'+INTENTOS+')');
+      await esperar(1200*intento);
+    }
+  }
 }
 function toast(msg, warn){ const t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; t.querySelector('.icon use').setAttribute('href', warn?'#i-alert':'#i-check'); t.classList.toggle('warn', !!warn); t.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.remove('show'),2200); }
 function mostrarLoading(m){ document.getElementById('loadingMsg').textContent=m; document.getElementById('loadingOverlay').classList.add('show'); }
