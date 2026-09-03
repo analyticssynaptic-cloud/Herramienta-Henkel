@@ -606,7 +606,9 @@
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyU6b-PvS8t8ATuCEEYucfFV7wsz4XyDTkHjeB7Mts75XMkbLWyZWO-1yYqPvhftiZXwA/exec';
 const LS_KEY = 'henkelgliss_session_v1';
 const LS_FOTOS = 'henkelgliss_fotos_v1';
-const SESION_MAX_MS = 6 * 60 * 60 * 1000;
+const SESION_MAX_MS = 12 * 60 * 60 * 1000;
+const PARAM_CACHE_KEY = 'henkelgliss_param_cache_v1';
+const PARAM_CACHE_TTL_MS = 5 * 60 * 1000; /* igual al TTL del caché del backend */
 
 const MODS = [
   {id:'ingreso',     icon:'i-pin',    label:'Ingreso',     gate:false},
@@ -927,18 +929,49 @@ function aplicarUbicacionUI(){
 }
 
 // ===== PARAMETRIZACIÓN =====
+// Carga con "stale-while-revalidate": si hay una copia en localStorage (aunque tenga
+// unos minutos), el listado de asesores/PDV/SKU aparece de inmediato con esa copia,
+// y en paralelo se pide la versión fresca al backend (que además ya viene cacheado
+// ahí con CacheService) para actualizar todo sin que el usuario tenga que esperar.
 async function cargarParametrizacion(){
   ocultarAlertaParam();
+  const cache = leerCacheParametrizacion();
+  if (cache) aplicarParametrizacion(cache);
+  await refrescarParametrizacion(!cache);
+}
+function leerCacheParametrizacion(){
+  try{
+    const raw = localStorage.getItem(PARAM_CACHE_KEY);
+    if(!raw) return null;
+    const obj = JSON.parse(raw);
+    if(!obj || !obj.data || !obj.guardadoEn) return null;
+    // Copia demasiado vieja (>1h): mejor no usarla ni como respaldo instantáneo.
+    if((Date.now()-obj.guardadoEn) > 60*60*1000) return null;
+    return obj.data;
+  }catch(e){ return null; }
+}
+function guardarCacheParametrizacion(data){
+  try{ localStorage.setItem(PARAM_CACHE_KEY, JSON.stringify({data:data, guardadoEn:Date.now()})); }catch(e){}
+}
+async function refrescarParametrizacion(mostrarErrorSiFalla){
   try{
     const res=await fetch(GAS_URL+'?action=parametrizacion',{redirect:'follow'});
     const data=await res.json();
     if(data&&data.success&&Array.isArray(data.pdvs)&&data.pdvs.length>0){
-      parametrizacion=data; modoManual=false; activarModoSelect();
-      todosLosUsuarios = (parametrizacion.usuarios||[]).map(u=>Object.assign({especial:false},u))
-        .concat((parametrizacion.usuariosEspeciales||[]).map(u=>Object.assign({especial:true},u)));
-      cargarAsesores(); cargarCiudades(); poblarProductos(); aplicarPendAsesorPDV();
-    } else activarModoManual((data&&data.error)?data.error:'La hoja respondió sin puntos de venta. Revisa la hoja "PDV".');
-  }catch(err){ activarModoManual('No hay conexión con el servidor. ('+err.message+')'); }
+      guardarCacheParametrizacion(data);
+      aplicarParametrizacion(data);
+    } else if(mostrarErrorSiFalla){
+      activarModoManual((data&&data.error)?data.error:'La hoja respondió sin puntos de venta. Revisa la hoja "PDV".');
+    }
+  }catch(err){
+    if(mostrarErrorSiFalla) activarModoManual('No hay conexión con el servidor. ('+err.message+')');
+  }
+}
+function aplicarParametrizacion(data){
+  parametrizacion=data; modoManual=false; activarModoSelect();
+  todosLosUsuarios = (parametrizacion.usuarios||[]).map(u=>Object.assign({especial:false},u))
+    .concat((parametrizacion.usuariosEspeciales||[]).map(u=>Object.assign({especial:true},u)));
+  cargarAsesores(); cargarCiudades(); poblarProductos(); aplicarPendAsesorPDV();
 }
 function cargarAsesores(){
   const s=document.getElementById('asesorNombre'); const actual=s.value;
