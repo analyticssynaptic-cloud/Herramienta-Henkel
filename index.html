@@ -443,23 +443,23 @@
     <div class="card">
       <div class="card-head">
         <div class="card-chip"><svg class="icon icon-lg"><use href="#i-box"/></svg></div>
-        <div class="card-head-text"><div class="card-title">Premios</div><div class="card-sub">Inventario de premios que llega/se carga al PDV</div></div>
+        <div class="card-head-text"><div class="card-title">Premios</div><div class="card-sub">Lo que recibiste del supervisor y lo que entregaste</div></div>
         <span class="saved-badge" id="badge-premios"><svg class="icon icon-sm"><use href="#i-check"/></svg>Guardado</span>
       </div>
-      <label class="label" style="margin-bottom:9px">Premios recibidos en esta visita</label>
+      <label class="label" style="margin-bottom:9px">¿Cuánto recibiste del supervisor para estas referencias?</label>
       <div id="listaPremios"></div>
       <button type="button" class="btn btn-soft btn-block" onclick="agregarPremio()"><svg class="icon icon-sm"><use href="#i-plus"/></svg>Agregar premio recibido</button>
 
       <div class="field" style="margin-top:20px;margin-bottom:0">
-        <label class="label label-req">Inventario actual en el punto (conteo físico)</label>
+        <label class="label label-req">¿Cuánto entregaste a los consumidores?</label>
         <div class="info-banner" style="margin-bottom:10px">
           <div class="info-banner-title"><svg class="icon icon-sm"><use href="#i-box"/></svg>Control de obsequios</div>
-          <div style="font-size:12.5px">Cuenta físicamente cuántos quedan de <b>cada premio del catálogo</b> en el punto, así haya sido 0.</div>
+          <div style="font-size:12.5px">Registra cuántos entregaste de <b>cada premio del catálogo</b>, así haya sido 0. Lo que queda lo calculamos nosotros con esta información.</div>
         </div>
-        <div id="listaInventarioPremios"></div>
+        <div id="listaEntregaPremios"></div>
       </div>
 
-      <div class="field" style="margin-top:16px"><label class="label" for="premiosObservaciones">Observaciones</label><textarea id="premiosObservaciones" class="textarea" placeholder="Notas sobre el inventario de premios"></textarea></div>
+      <div class="field" style="margin-top:16px"><label class="label" for="premiosObservaciones">Observaciones</label><textarea id="premiosObservaciones" class="textarea" placeholder="Notas sobre premios y entregas"></textarea></div>
       <div class="field" style="margin-bottom:0"><label class="label">Foto del inventario de premios</label>
         <div class="upload upload-mini" id="uploadPremios">
           <input type="file" id="filePremios" accept="image/*" capture="environment">
@@ -652,7 +652,7 @@ let esUsuarioEspecial = false;
 let fotoIngreso = '', fotoIngresoURL = '';
 let fotoSalida = '', fotoSalidaURL = '';
 let fotoPremios = '', fotoPremiosURL = '';
-let ventasList = [], premiosList = [], vozList = [], competenciaList = [], premiosInventarioActual = [];
+let ventasList = [], premiosList = [], vozList = [], competenciaList = [], premiosEntregados = [];
 let asesorSel = { nombre:'', documento:'', telefono:'' };
 let pendAsesorNombre = null, pendPDV = null, pendCiudad = null;
 let registroPromise = null;
@@ -849,8 +849,8 @@ function aplicarGestionRemota(registroIdRecuperado, g){
   setRadio('competenciaHayActividad', g.competenciaHayActividad); onCompetenciaChange();
   const darId=list=>(list||[]).map(it=>Object.assign({id:uid('r')},it));
   ventasList=darId(g.ventaProductos); premiosList=darId(g.premiosRecibidos); vozList=darId(g.vozConsumidor); competenciaList=darId(g.competenciaEvidencias);
-  premiosInventarioActual = Array.isArray(g.premiosInventarioActual) ? g.premiosInventarioActual.slice() : [];
-  renderVentas(); renderPremios(); renderVoz(); renderCompetencia(); renderInventarioPremios();
+  premiosEntregados = Array.isArray(g.premiosEntregados) ? g.premiosEntregados.slice() : [];
+  renderVentas(); renderPremios(); renderVoz(); renderCompetencia(); renderEntregaPremios();
   document.getElementById('premiosObservaciones').value=g.premiosObservaciones||'';
   fotoIngreso=''; fotoIngresoURL=g.fotoIngresoURL||''; aplicarFoto('ingreso', fotoIngresoURL);
   fotoSalida=''; fotoSalidaURL=g.fotoSalidaURL||''; aplicarFoto('salida', fotoSalidaURL);
@@ -1029,7 +1029,7 @@ function cargarPDVsPorCiudad(ciudad){
   s.innerHTML='<option value="">Selecciona el punto de venta</option>'+lista.slice().sort((a,b)=>a.localeCompare(b,'es')).map(p=>'<option value="'+escAttr(p)+'">'+escHtml(p)+'</option>').join('');
   if(actual && lista.indexOf(actual)!==-1) s.value=actual;
 }
-function poblarProductos(){ renderVentas(); renderPremios(); renderInventarioPremios(); }
+function poblarProductos(){ renderVentas(); renderPremios(); renderEntregaPremios(); }
 
 // ===== SELECTOR DE PRODUCTO: hoja desplegable con buscador (SKU / Premio) =====
 // Reemplaza el <select>/datalist nativo por una hoja propia (mismo patrón visual que
@@ -1141,24 +1141,25 @@ function renderPremios(){
     <div class="field" style="margin-bottom:0;margin-top:11px"><label class="label label-req">Cantidad recibida</label><input type="number" class="input" min="1" value="${p.cantidad}" oninput="setCantidad('${p.id}',this.value)"></div>`; cont.appendChild(d); });
 }
 
-// ===== INVENTARIO ACTUAL DE PREMIOS (conteo físico, uno por cada premio del catálogo) =====
-function sincronizarInventarioPremios(){
+// ===== ENTREGA DE PREMIOS (cuánto se entregó, uno por cada premio del catálogo; lo que
+//       queda en el punto se calcula internamente como recibidos - entregados) =====
+function sincronizarEntregaPremios(){
   const lista = parametrizacion.premios || [];
-  if(!Array.isArray(premiosInventarioActual)) premiosInventarioActual=[];
-  lista.forEach(prod=>{ if(!premiosInventarioActual.find(x=>x.producto===prod)) premiosInventarioActual.push({producto:prod, cantidadActual:''}); });
-  premiosInventarioActual = premiosInventarioActual.filter(x=> lista.length===0 || lista.indexOf(x.producto)!==-1);
+  if(!Array.isArray(premiosEntregados)) premiosEntregados=[];
+  lista.forEach(prod=>{ if(!premiosEntregados.find(x=>x.producto===prod)) premiosEntregados.push({producto:prod, cantidadEntregada:''}); });
+  premiosEntregados = premiosEntregados.filter(x=> lista.length===0 || lista.indexOf(x.producto)!==-1);
 }
-function renderInventarioPremios(){
-  sincronizarInventarioPremios();
-  const cont=document.getElementById('listaInventarioPremios'); if(!cont) return; cont.innerHTML='';
-  if(premiosInventarioActual.length===0){ cont.innerHTML='<div class="empty-hint">Aún no hay premios parametrizados en la hoja "Premios".</div>'; return; }
-  premiosInventarioActual.forEach(it=>{
+function renderEntregaPremios(){
+  sincronizarEntregaPremios();
+  const cont=document.getElementById('listaEntregaPremios'); if(!cont) return; cont.innerHTML='';
+  if(premiosEntregados.length===0){ cont.innerHTML='<div class="empty-hint">Aún no hay premios parametrizados en la hoja "Premios".</div>'; return; }
+  premiosEntregados.forEach(it=>{
     const row=document.createElement('div');
     row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)';
     row.innerHTML=`<span style="font-size:12.5px;flex:1;color:var(--ink)">${escHtml(it.producto)}</span><input type="number" class="input inv-premio-input" style="width:88px;min-height:40px;padding:8px 10px;text-align:center" min="0" placeholder="Cant.">`;
     const input = row.querySelector('.inv-premio-input');
-    input.value = it.cantidadActual;
-    input.addEventListener('input', () => { it.cantidadActual = input.value; });
+    input.value = it.cantidadEntregada;
+    input.addEventListener('input', () => { it.cantidadEntregada = input.value; });
     cont.appendChild(row);
   });
 }
@@ -1363,7 +1364,7 @@ function persistir(){
     if(Array.isArray(campos.competenciaEvidencias)) campos.competenciaEvidencias=campos.competenciaEvidencias.map(ev=>Object.assign({},ev,{foto:''}));
     const data={ loggedIn:true, guardadoEn:Date.now(), registroId, saved, current, ubicacion, esUsuarioEspecial,
       fotoIngresoURL, fotoSalidaURL, fotoPremiosURL, campos, asesorSel,
-      listas:{ ventasList, premiosList, vozList, premiosInventarioActual, competenciaList: competenciaList.map(ev=>Object.assign({},ev,{foto:''})) } };
+      listas:{ ventasList, premiosList, vozList, premiosEntregados, competenciaList: competenciaList.map(ev=>Object.assign({},ev,{foto:''})) } };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
   }catch(e){}
 }
@@ -1396,8 +1397,8 @@ function restaurarSesion(){
   if(g.ventaMotivoNo!=null){ const el=document.getElementById('ventaMotivoNo'); if(el) el.value=g.ventaMotivoNo; }
   setRadio('competenciaHayActividad', g.competenciaHayActividad); onCompetenciaChange();
   const L=d.listas||{};
-  ventasList=L.ventasList||[]; premiosList=L.premiosList||[]; vozList=L.vozList||[]; competenciaList=L.competenciaList||[]; premiosInventarioActual=L.premiosInventarioActual||[];
-  renderVentas(); renderPremios(); renderVoz(); renderCompetencia(); renderInventarioPremios();
+  ventasList=L.ventasList||[]; premiosList=L.premiosList||[]; vozList=L.vozList||[]; competenciaList=L.competenciaList||[]; premiosEntregados=L.premiosEntregados||[];
+  renderVentas(); renderPremios(); renderVoz(); renderCompetencia(); renderEntregaPremios();
   document.getElementById('premiosObservaciones').value=g.premiosObservaciones||'';
   ubicacion=d.ubicacion||{lat:null,lng:null,acc:null};
   aplicarUbicacionUI();
@@ -1440,7 +1441,7 @@ function validarModulo(id){
   }
   if(id==='premios'){
     premiosList.forEach((p,i)=>{ if(!p.producto) e.push('Premio '+(i+1)); if(!p.cantidad||p.cantidad<1) e.push('Cantidad de premio '+(i+1)); });
-    premiosInventarioActual.forEach(it=>{ if(it.cantidadActual===''||it.cantidadActual===null||it.cantidadActual===undefined) e.push('Conteo actual de "'+it.producto+'"'); });
+    premiosEntregados.forEach(it=>{ if(it.cantidadEntregada===''||it.cantidadEntregada===null||it.cantidadEntregada===undefined) e.push('Cantidad entregada de "'+it.producto+'"'); });
   }
   if(id==='voz'){
     vozList.forEach((p,i)=>{
@@ -1477,7 +1478,7 @@ function recolectarGestion(){
     ventaMotivoNo: val('ventaMotivoNo'),
     ventaProductos: ventasList.map(p=>({categoria:p.categoria,marca:p.marca,producto:p.producto,ean:p.ean,cantidad:p.cantidad})),
     premiosRecibidos: premiosList.map(p=>({producto:p.producto,cantidad:p.cantidad})),
-    premiosInventarioActual: premiosInventarioActual.map(it=>({producto:it.producto,cantidadActual:it.cantidadActual})),
+    premiosEntregados: premiosEntregados.map(it=>({producto:it.producto,cantidadEntregada:it.cantidadEntregada})),
     premiosObservaciones: val('premiosObservaciones'), fotoPremios: fotoPremios, fotoPremiosURL: fotoPremiosURL,
     vozConsumidor: vozList.map(p=>({tipoProductoPreferido:p.tipoProductoPreferido,conoceMarca:p.conoceMarca,canalesConocimiento:p.canalesConocimiento||[],canalOtro:p.canalOtro,usoMarca:p.usoMarca,opinionProductos:p.opinionProductos,tipoCabello:p.tipoCabello,atributosDeseados:p.atributosDeseados||[],atributosOtro:p.atributosOtro,percepcionPunto:p.percepcionPunto,mejoraria:p.mejoraria,productoComentado:p.productoComentado,edad:p.edad,genero:p.genero})),
     competenciaHayActividad: (document.querySelector('input[name="competenciaHayActividad"]:checked')||{}).value||'',
@@ -1549,7 +1550,7 @@ function renderResumen(){
   h+=secRaw('i-cart','Ventas',vH);
 
   let pH = premiosList.length ? premiosList.map((p,i)=>'<div class="res-mini">'+(i+1)+'. <b>'+(escHtml(p.producto)||'—')+'</b> · '+(p.cantidad||0)+' und recibidas</div>').join('') : '<div class="res-mini">Sin premios recibidos registrados</div>';
-  if(premiosInventarioActual.length){ pH+='<div class="res-mini" style="margin-top:6px"><b>Inventario actual:</b></div>'+premiosInventarioActual.map(it=>'<div class="res-mini">• '+escHtml(it.producto)+': '+(it.cantidadActual!==''?it.cantidadActual:'—')+'</div>').join(''); }
+  if(premiosEntregados.length){ pH+='<div class="res-mini" style="margin-top:6px"><b>Entregados:</b></div>'+premiosEntregados.map(it=>'<div class="res-mini">• '+escHtml(it.producto)+': '+(it.cantidadEntregada!==''?it.cantidadEntregada:'—')+'</div>').join(''); }
   h+=secRaw('i-box','Premios',pH);
 
   const vozH = vozList.length ? vozList.map((p,i)=>{
@@ -1600,7 +1601,7 @@ function generarTextoGestion(){
   if(ventaR==='No') t+='   ↳ Motivo: '+(val('ventaMotivoNo')||'-')+'\n';
   if(ventaR==='Si'){ ventasList.forEach(p=>{ t+='   • '+(p.producto||'-')+'  _x'+(p.cantidad||0)+'_\n'; }); }
   if(premiosList.length){ t+='\n📦 *PREMIOS RECIBIDOS*\n'; premiosList.forEach(p=>{ t+='   • '+(p.producto||'-')+'  _x'+(p.cantidad||0)+'_\n'; }); }
-  if(premiosInventarioActual.length){ t+='\n📋 *INVENTARIO ACTUAL DE PREMIOS*\n'; premiosInventarioActual.forEach(it=>{ t+='   • '+(it.producto||'-')+': '+(it.cantidadActual!==''?it.cantidadActual:'-')+'\n'; }); }
+  if(premiosEntregados.length){ t+='\n📋 *PREMIOS ENTREGADOS*\n'; premiosEntregados.forEach(it=>{ t+='   • '+(it.producto||'-')+': '+(it.cantidadEntregada!==''?it.cantidadEntregada:'-')+'\n'; }); }
   if(vozList.length){
     t+='\n💬 *VOZ DEL CONSUMIDOR*\n';
     vozList.forEach((p,i)=>{
