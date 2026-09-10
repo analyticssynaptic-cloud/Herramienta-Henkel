@@ -443,18 +443,14 @@
     <div class="card">
       <div class="card-head">
         <div class="card-chip"><svg class="icon icon-lg"><use href="#i-box"/></svg></div>
-        <div class="card-head-text"><div class="card-title">Premios</div><div class="card-sub">Lo que recibiste del supervisor y lo que entregaste</div></div>
+        <div class="card-head-text"><div class="card-title">Premios redimidos</div><div class="card-sub">Lo que le entregaste al consumidor en el punto</div></div>
         <span class="saved-badge" id="badge-premios"><svg class="icon icon-sm"><use href="#i-check"/></svg>Guardado</span>
       </div>
-      <label class="label" style="margin-bottom:9px">¿Cuánto recibiste del supervisor para estas referencias?</label>
-      <div id="listaPremios"></div>
-      <button type="button" class="btn btn-soft btn-block" onclick="agregarPremio()"><svg class="icon icon-sm"><use href="#i-plus"/></svg>Agregar premio recibido</button>
-
-      <div class="field" style="margin-top:20px;margin-bottom:0">
+      <div class="field" style="margin-bottom:0">
         <label class="label label-req">¿Cuánto entregaste a los consumidores?</label>
         <div class="info-banner" style="margin-bottom:10px">
           <div class="info-banner-title"><svg class="icon icon-sm"><use href="#i-box"/></svg>Control de obsequios</div>
-          <div style="font-size:12.5px">Registra cuántos entregaste de <b>cada premio del catálogo</b>, así haya sido 0. Lo que queda lo calculamos nosotros con esta información.</div>
+          <div style="font-size:12.5px">Registra cuántos entregaste de <b>cada premio del catálogo</b>, así haya sido 0.</div>
         </div>
         <div id="listaEntregaPremios"></div>
       </div>
@@ -652,7 +648,7 @@ let esUsuarioEspecial = false;
 let fotoIngreso = '', fotoIngresoURL = '';
 let fotoSalida = '', fotoSalidaURL = '';
 let fotoPremios = '', fotoPremiosURL = '';
-let ventasList = [], premiosList = [], vozList = [], competenciaList = [], premiosEntregados = [];
+let ventasList = [], vozList = [], competenciaList = [], premiosEntregados = [];
 let asesorSel = { nombre:'', documento:'', telefono:'' };
 let pendAsesorNombre = null, pendPDV = null, pendCiudad = null;
 let registroPromise = null;
@@ -848,9 +844,9 @@ function aplicarGestionRemota(registroIdRecuperado, g){
   if(g.ventaMotivoNo!=null){ const el=document.getElementById('ventaMotivoNo'); if(el) el.value=g.ventaMotivoNo; }
   setRadio('competenciaHayActividad', g.competenciaHayActividad); onCompetenciaChange();
   const darId=list=>(list||[]).map(it=>Object.assign({id:uid('r')},it));
-  ventasList=darId(g.ventaProductos); premiosList=darId(g.premiosRecibidos); vozList=darId(g.vozConsumidor); competenciaList=darId(g.competenciaEvidencias);
+  ventasList=darId(g.ventaProductos); vozList=darId(g.vozConsumidor); competenciaList=darId(g.competenciaEvidencias);
   premiosEntregados = Array.isArray(g.premiosEntregados) ? g.premiosEntregados.slice() : [];
-  renderVentas(); renderPremios(); renderVoz(); renderCompetencia(); renderEntregaPremios();
+  renderVentas(); renderVoz(); renderCompetencia(); renderEntregaPremios();
   document.getElementById('premiosObservaciones').value=g.premiosObservaciones||'';
   fotoIngreso=''; fotoIngresoURL=g.fotoIngresoURL||''; aplicarFoto('ingreso', fotoIngresoURL);
   fotoSalida=''; fotoSalidaURL=g.fotoSalidaURL||''; aplicarFoto('salida', fotoSalidaURL);
@@ -1029,7 +1025,7 @@ function cargarPDVsPorCiudad(ciudad){
   s.innerHTML='<option value="">Selecciona el punto de venta</option>'+lista.slice().sort((a,b)=>a.localeCompare(b,'es')).map(p=>'<option value="'+escAttr(p)+'">'+escHtml(p)+'</option>').join('');
   if(actual && lista.indexOf(actual)!==-1) s.value=actual;
 }
-function poblarProductos(){ renderVentas(); renderPremios(); renderEntregaPremios(); }
+function poblarProductos(){ renderVentas(); renderEntregaPremios(); }
 
 // ===== SELECTOR DE PRODUCTO: hoja desplegable con buscador (SKU / Premio) =====
 // Reemplaza el <select>/datalist nativo por una hoja propia (mismo patrón visual que
@@ -1072,7 +1068,7 @@ function seleccionarCombo(valor){
   cerrarCombo();
   if(fn) fn(valor);
 }
-function findItem(id){ return ventasList.find(x=>x.id===id) || premiosList.find(x=>x.id===id); }
+function findItem(id){ return ventasList.find(x=>x.id===id); }
 function setCantidad(id,v){ const p=findItem(id); if(p) p.cantidad=parseFloat(v)||0; }
 
 // ===== VENTAS (catálogo estándar o SKU Pro en cascada según usuario especial) =====
@@ -1102,9 +1098,6 @@ function abrirComboProducto(tipo, id){
     } else {
       mostrarCombo('Producto', parametrizacion.skus, (v)=>{ p.producto=v; renderVentas(); });
     }
-  } else if(tipo==='premio'){
-    const p=premiosList.find(x=>x.id===id); if(!p) return;
-    mostrarCombo('Premio', parametrizacion.premios, (v)=>{ p.producto=v; renderPremios(); });
   }
 }
 function campoProducto(p, campoLabel, tipo){
@@ -1129,20 +1122,8 @@ function renderVentas(){
 }
 function onVentaChange(){ const v=(document.querySelector('input[name="ventaRealizada"]:checked')||{}).value; document.getElementById('ventaNo').style.display=v==='No'?'block':'none'; document.getElementById('ventaSi').style.display=v==='Si'?'block':'none'; if(v==='Si'&&ventasList.length===0&&!restaurando) agregarVenta(); }
 
-// ===== PREMIOS =====
-function agregarPremio(){ premiosList.push({id:uid('p'),producto:'',cantidad:1}); renderPremios(); }
-function eliminarPremio(id){ premiosList=premiosList.filter(x=>x.id!==id); renderPremios(); }
-function renderPremios(){
-  const cont=document.getElementById('listaPremios'); if(!cont) return; cont.innerHTML='';
-  if(premiosList.length===0){ cont.innerHTML='<div class="empty-hint">Agrega los premios recibidos.</div>'; return; }
-  premiosList.forEach((p,idx)=>{ const d=document.createElement('div'); d.className='item'; d.innerHTML=`
-    <div class="item-head"><div class="item-title"><svg class="icon icon-sm"><use href="#i-box"/></svg>Premio ${idx+1}</div><button type="button" class="btn btn-danger btn-icon" onclick="eliminarPremio('${p.id}')"><svg class="icon icon-sm"><use href="#i-trash"/></svg></button></div>
-    ${campoProducto(p, 'Premio', 'premio')}
-    <div class="field" style="margin-bottom:0;margin-top:11px"><label class="label label-req">Cantidad recibida</label><input type="number" class="input" min="1" value="${p.cantidad}" oninput="setCantidad('${p.id}',this.value)"></div>`; cont.appendChild(d); });
-}
-
-// ===== ENTREGA DE PREMIOS (cuánto se entregó, uno por cada premio del catálogo; lo que
-//       queda en el punto se calcula internamente como recibidos - entregados) =====
+// ===== ENTREGA DE PREMIOS (premios redimidos: cuánto se entregó al consumidor,
+//       uno por cada premio del catálogo) =====
 function sincronizarEntregaPremios(){
   const lista = parametrizacion.premios || [];
   if(!Array.isArray(premiosEntregados)) premiosEntregados=[];
@@ -1364,7 +1345,7 @@ function persistir(){
     if(Array.isArray(campos.competenciaEvidencias)) campos.competenciaEvidencias=campos.competenciaEvidencias.map(ev=>Object.assign({},ev,{foto:''}));
     const data={ loggedIn:true, guardadoEn:Date.now(), registroId, saved, current, ubicacion, esUsuarioEspecial,
       fotoIngresoURL, fotoSalidaURL, fotoPremiosURL, campos, asesorSel,
-      listas:{ ventasList, premiosList, vozList, premiosEntregados, competenciaList: competenciaList.map(ev=>Object.assign({},ev,{foto:''})) } };
+      listas:{ ventasList, vozList, premiosEntregados, competenciaList: competenciaList.map(ev=>Object.assign({},ev,{foto:''})) } };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
   }catch(e){}
 }
@@ -1397,8 +1378,8 @@ function restaurarSesion(){
   if(g.ventaMotivoNo!=null){ const el=document.getElementById('ventaMotivoNo'); if(el) el.value=g.ventaMotivoNo; }
   setRadio('competenciaHayActividad', g.competenciaHayActividad); onCompetenciaChange();
   const L=d.listas||{};
-  ventasList=L.ventasList||[]; premiosList=L.premiosList||[]; vozList=L.vozList||[]; competenciaList=L.competenciaList||[]; premiosEntregados=L.premiosEntregados||[];
-  renderVentas(); renderPremios(); renderVoz(); renderCompetencia(); renderEntregaPremios();
+  ventasList=L.ventasList||[]; vozList=L.vozList||[]; competenciaList=L.competenciaList||[]; premiosEntregados=L.premiosEntregados||[];
+  renderVentas(); renderVoz(); renderCompetencia(); renderEntregaPremios();
   document.getElementById('premiosObservaciones').value=g.premiosObservaciones||'';
   ubicacion=d.ubicacion||{lat:null,lng:null,acc:null};
   aplicarUbicacionUI();
@@ -1440,7 +1421,6 @@ function validarModulo(id){
     }
   }
   if(id==='premios'){
-    premiosList.forEach((p,i)=>{ if(!p.producto) e.push('Premio '+(i+1)); if(!p.cantidad||p.cantidad<1) e.push('Cantidad de premio '+(i+1)); });
     premiosEntregados.forEach(it=>{ if(it.cantidadEntregada===''||it.cantidadEntregada===null||it.cantidadEntregada===undefined) e.push('Cantidad entregada de "'+it.producto+'"'); });
   }
   if(id==='voz'){
@@ -1477,7 +1457,6 @@ function recolectarGestion(){
     ventaRealizada: (document.querySelector('input[name="ventaRealizada"]:checked')||{}).value||'',
     ventaMotivoNo: val('ventaMotivoNo'),
     ventaProductos: ventasList.map(p=>({categoria:p.categoria,marca:p.marca,producto:p.producto,ean:p.ean,cantidad:p.cantidad})),
-    premiosRecibidos: premiosList.map(p=>({producto:p.producto,cantidad:p.cantidad})),
     premiosEntregados: premiosEntregados.map(it=>({producto:it.producto,cantidadEntregada:it.cantidadEntregada})),
     premiosObservaciones: val('premiosObservaciones'), fotoPremios: fotoPremios, fotoPremiosURL: fotoPremiosURL,
     vozConsumidor: vozList.map(p=>({tipoProductoPreferido:p.tipoProductoPreferido,conoceMarca:p.conoceMarca,canalesConocimiento:p.canalesConocimiento||[],canalOtro:p.canalOtro,usoMarca:p.usoMarca,opinionProductos:p.opinionProductos,tipoCabello:p.tipoCabello,atributosDeseados:p.atributosDeseados||[],atributosOtro:p.atributosOtro,percepcionPunto:p.percepcionPunto,mejoraria:p.mejoraria,productoComentado:p.productoComentado,edad:p.edad,genero:p.genero})),
@@ -1549,9 +1528,8 @@ function renderResumen(){
   if(ventaR==='Si'){ vH+=(ventasList.length?ventasList.map((p,i)=>'<div class="res-mini">'+(i+1)+'. <b>'+(escHtml(p.producto)||'—')+'</b> · '+(p.cantidad||0)+' und</div>').join(''):'<div class="res-mini">Sin productos vendidos</div>'); }
   h+=secRaw('i-cart','Ventas',vH);
 
-  let pH = premiosList.length ? premiosList.map((p,i)=>'<div class="res-mini">'+(i+1)+'. <b>'+(escHtml(p.producto)||'—')+'</b> · '+(p.cantidad||0)+' und recibidas</div>').join('') : '<div class="res-mini">Sin premios recibidos registrados</div>';
-  if(premiosEntregados.length){ pH+='<div class="res-mini" style="margin-top:6px"><b>Entregados:</b></div>'+premiosEntregados.map(it=>'<div class="res-mini">• '+escHtml(it.producto)+': '+(it.cantidadEntregada!==''?it.cantidadEntregada:'—')+'</div>').join(''); }
-  h+=secRaw('i-box','Premios',pH);
+  let pH = premiosEntregados.length ? premiosEntregados.map(it=>'<div class="res-mini">• '+escHtml(it.producto)+': '+(it.cantidadEntregada!==''?it.cantidadEntregada:'—')+'</div>').join('') : '<div class="res-mini">Sin premios redimidos registrados</div>';
+  h+=secRaw('i-box','Premios redimidos',pH);
 
   const vozH = vozList.length ? vozList.map((p,i)=>{
     const op=OPINION_PRODUCTOS.find(o=>String(o.v)===String(p.opinionProductos));
@@ -1600,8 +1578,7 @@ function generarTextoGestion(){
   t+='\n🛒 *VENTAS:* '+(ventaR||'-')+'\n';
   if(ventaR==='No') t+='   ↳ Motivo: '+(val('ventaMotivoNo')||'-')+'\n';
   if(ventaR==='Si'){ ventasList.forEach(p=>{ t+='   • '+(p.producto||'-')+'  _x'+(p.cantidad||0)+'_\n'; }); }
-  if(premiosList.length){ t+='\n📦 *PREMIOS RECIBIDOS*\n'; premiosList.forEach(p=>{ t+='   • '+(p.producto||'-')+'  _x'+(p.cantidad||0)+'_\n'; }); }
-  if(premiosEntregados.length){ t+='\n📋 *PREMIOS ENTREGADOS*\n'; premiosEntregados.forEach(it=>{ t+='   • '+(it.producto||'-')+': '+(it.cantidadEntregada!==''?it.cantidadEntregada:'-')+'\n'; }); }
+  if(premiosEntregados.length){ t+='\n📋 *PREMIOS REDIMIDOS*\n'; premiosEntregados.forEach(it=>{ t+='   • '+(it.producto||'-')+': '+(it.cantidadEntregada!==''?it.cantidadEntregada:'-')+'\n'; }); }
   if(vozList.length){
     t+='\n💬 *VOZ DEL CONSUMIDOR*\n';
     vozList.forEach((p,i)=>{
