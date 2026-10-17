@@ -611,6 +611,272 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbyU6b-PvS8t8ATuCEEYucfF
 const LS_KEY = 'henkelgliss_session_v1';
 const LS_FOTOS = 'henkelgliss_fotos_v1';
 const SESION_MAX_MS = 16 * 60 * 60 * 1000;
+
+// ============================================================
+// RESILIENCIA: plataforma (SO/navegador), red inestable con cola offline
+// y cierre automático de sesión a las 11:00 p. m. (hora Colombia)
+// ============================================================
+
+// ===== PLATAFORMA =====
+const PLAT = (function(){
+  const ua = navigator.userAgent || '';
+  const tactil = (navigator.maxTouchPoints || 0) > 1;
+  let os = 'otro';
+  if (/android/i.test(ua)) os = 'android';
+  else if (/iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && tactil)) os = 'ios'; /* iPadOS se anuncia como Mac */
+  else if (/windows/i.test(ua)) os = 'windows';
+  else if (/Mac OS X|Macintosh/i.test(ua)) os = 'mac';
+  else if (/Linux|CrOS/i.test(ua)) os = 'linux';
+  let navegador = 'otro';
+  if (/Edg(e|A|iOS)?\//.test(ua)) navegador = 'edge';
+  else if (/OPR\/|OPiOS/.test(ua)) navegador = 'opera';
+  else if (/SamsungBrowser/i.test(ua)) navegador = 'samsung';
+  else if (/Firefox|FxiOS/.test(ua)) navegador = 'firefox';
+  else if (/Chrome|CriOS/.test(ua)) navegador = 'chrome';
+  else if (/Safari/.test(ua)) navegador = 'safari';
+  // Navegadores integrados de otras apps (WhatsApp, Facebook, Instagram...): cámara/GPS/almacenamiento fallan más.
+  const enApp = /FBAN|FBAV|FB_IAB|Instagram|WhatsApp|Line\/|Snapchat|TikTok|MicroMessenger|; wv\)/i.test(ua) || (os === 'ios' && !/Safari\//.test(ua));
+  return { os: os, navegador: navegador, enApp: enApp, ios: os === 'ios', android: os === 'android' };
+})();
+const DISPOSITIVO = PLAT.os + '/' + PLAT.navegador + (PLAT.enApp ? ' (app integrada)' : '') + ' · ' + (window.screen ? screen.width + 'x' + screen.height : '?');
+
+function aplicarAjustesPlataforma(){
+  const cl = document.documentElement.classList;
+  cl.add('os-' + PLAT.os); cl.add('nav-' + PLAT.navegador);
+  if (PLAT.enApp) mostrarAvisoNavegadorIntegrado();
+  // Pide almacenamiento persistente para que el navegador no borre la cola/fotos pendientes si falta espacio.
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+  // iOS (Safari) y Android descartan las pestañas en segundo plano: se guarda todo al ocultar/cerrar.
+  const guardarYa = function(){
+    if (!window._comenzando && !registroId) return; /* sin sesión iniciada no se persiste nada */
+    try { persistir(); persistirFotos(); } catch (e) {}
+  };
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'hidden') guardarYa();
+    else { vaciarOutbox(false); verificarCorteNocturno(); }
+  });
+  window.addEventListener('pagehide', guardarYa);
+}
+function mostrarAvisoNavegadorIntegrado(){
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 84px);z-index:99998;background:#fff3cd;color:#664d03;border:1px solid #ffda6a;border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.35;box-shadow:0 4px 14px rgba(0,0,0,.18)';
+  d.innerHTML = '<b>Estás en el navegador integrado de otra app.</b> La cámara, el GPS y el envío pueden fallar. Abre este enlace en <b>' + (PLAT.ios ? 'Safari' : 'Chrome') + '</b> (menú ⋮ o compartir → "Abrir en el navegador").<button type="button" style="float:right;margin-left:8px;border:0;background:transparent;font-size:16px;color:inherit" aria-label="Cerrar aviso">✕</button>';
+  d.querySelector('button').onclick = function(){ d.remove(); };
+  document.body.appendChild(d);
+}
+
+// ===== RED: timeouts y detección de señal débil =====
+function conexionInfo(){ return navigator.connection || navigator.mozConnection || navigator.webkitConnection || null; }
+function sinRed(){ return navigator.onLine === false; }
+function redMuyLenta(){ const c = conexionInfo(); return !!(c && (c.effectiveType === 'slow-2g' || c.effectiveType === '2g')); }
+let fallasSeguidas = 0, ultimaFalla = 0;
+/* Red "inestable": sin conexión, 2G, o dos fallos seguidos hace menos de 45 s (intermitencia). */
+function redInestable(){ return sinRed() || redMuyLenta() || (fallasSeguidas >= 2 && (Date.now() - ultimaFalla) < 45000); }
+
+function fetchConTimeout(url, opts, ms){
+  return new Promise(function(resolve, reject){
+    let ctrl = null;
+    if (typeof AbortController !== 'undefined') { ctrl = new AbortController(); opts = Object.assign({}, opts, { signal: ctrl.signal }); }
+    const t = setTimeout(function(){ if (ctrl) { try { ctrl.abort(); } catch (e) {} } reject(new Error('Tiempo de espera agotado (señal lenta)')); }, ms);
+    fetch(url, opts).then(function(r){ clearTimeout(t); resolve(r); }, function(e){ clearTimeout(t); reject(e); });
+  });
+}
+const ERROR_TRANSITORIO = /lock|tiempo de espera|timeout|Service invoked too many|Service unavailable|try again/i;
+
+/* Un solo intento de envío. Devuelve {ok,data} | {validacion,error} (el backend lo rechazó: reintentar no sirve) | {red,error}. */
+async function intentarEnvio(payload, maxTimeoutMs){
+  const body = JSON.stringify(payload);
+  const ms = Math.min(maxTimeoutMs || 45000, 20000 + Math.round(body.length / 30));
+  try {
+    const res = await fetchConTimeout(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: body, redirect: 'follow' }, ms);
+    const data = await res.json(); /* si el operador devuelve HTML en vez de JSON, lanza y cae al catch como falla de red */
+    if (data && data.success) { fallasSeguidas = 0; return { ok: true, data: data }; }
+    const msg = (data && data.error) || 'desconocido';
+    if (ERROR_TRANSITORIO.test(msg)) return { ok: false, red: true, error: msg };
+    fallasSeguidas = 0;
+    return { ok: false, validacion: true, error: msg };
+  } catch (err) {
+    fallasSeguidas++; ultimaFalla = Date.now();
+    return { ok: false, red: true, error: (err && err.message) ? err.message : String(err) };
+  }
+}
+
+/* Todos los envíos (directos y de la cola) pasan por una sola fila: así nunca llega una versión vieja después de una nueva. */
+let cadenaEnvio = Promise.resolve();
+function enSerie(fn){ const p = cadenaEnvio.then(fn, fn); cadenaEnvio = p.catch(function(){}); return p; }
+
+function generarRegistroId(){
+  const d = new Date(), n = function(x){ return x < 10 ? '0' + x : '' + x; };
+  return 'HKN-' + d.getFullYear() + n(d.getMonth() + 1) + n(d.getDate()) + '-' + n(d.getHours()) + n(d.getMinutes()) + n(d.getSeconds()) + '-' + Math.floor(Math.random() * 1000);
+}
+
+/* Envía; si la red está mala o falla, deja la gestión en la cola del celular para enviarla sola después. */
+function enviarGestionResiliente(payload, finalizar){
+  payload.clientTs = Date.now();
+  return enSerie(async function(){
+    if (!redInestable()) {
+      for (let i = 1; i <= 2; i++) {
+        const r = await intentarEnvio(payload, 45000);
+        if (r.ok) { await outboxDel(payload.registroId); return r; }
+        if (r.validacion) return r;
+        if (i < 2) await esperar(1200);
+      }
+    }
+    const guardado = await outboxPut({ registroId: payload.registroId, payload: payload, finalizar: !!finalizar, creado: Date.now(), rechazos: 0 });
+    return guardado ? { ok: false, encolado: true } : { ok: false, sinAlmacenamiento: true };
+  });
+}
+
+// ===== COLA OFFLINE (IndexedDB, con respaldo en localStorage) =====
+const OB_DB = 'henkelgliss_outbox_v1', OB_STORE = 'cola', OB_LS = 'henkelgliss_outbox_ls_v1';
+let _obDB = null, _obFallo = false;
+function obAbrir(){
+  return new Promise(function(resolve){
+    if (_obDB) return resolve(_obDB);
+    if (_obFallo || !window.indexedDB) return resolve(null);
+    let req; try { req = indexedDB.open(OB_DB, 1); } catch (e) { _obFallo = true; return resolve(null); }
+    req.onupgradeneeded = function(){ req.result.createObjectStore(OB_STORE, { keyPath: 'registroId' }); };
+    req.onsuccess = function(){ _obDB = req.result; _obDB.onclose = function(){ _obDB = null; }; resolve(_obDB); };
+    req.onerror = req.onblocked = function(){ _obFallo = true; resolve(null); };
+  });
+}
+function idbReq(req){ return new Promise(function(res, rej){ req.onsuccess = function(){ res(req.result); }; req.onerror = function(){ rej(req.error); }; }); }
+function obLeerLS(){ try { return JSON.parse(localStorage.getItem(OB_LS) || '[]'); } catch (e) { return []; } }
+function obEscribirLS(arr){ try { localStorage.setItem(OB_LS, JSON.stringify(arr)); return true; } catch (e) { return false; } }
+
+async function outboxAll(){
+  const db = await obAbrir();
+  if (db) { try { return await idbReq(db.transaction(OB_STORE).objectStore(OB_STORE).getAll()); } catch (e) {} }
+  return obLeerLS();
+}
+async function outboxGet(id){
+  const db = await obAbrir();
+  if (db) { try { return (await idbReq(db.transaction(OB_STORE).objectStore(OB_STORE).get(id))) || null; } catch (e) {} }
+  return obLeerLS().filter(function(x){ return x.registroId === id; })[0] || null;
+}
+async function outboxPutRaw(item){
+  const db = await obAbrir();
+  if (db) { try { await idbReq(db.transaction(OB_STORE, 'readwrite').objectStore(OB_STORE).put(item)); return true; } catch (e) {} }
+  const arr = obLeerLS().filter(function(x){ return x.registroId !== item.registroId; }); arr.push(item);
+  return obEscribirLS(arr);
+}
+/* Una entrada por visita: la gestión se manda completa en cada guardado, así que la más nueva reemplaza a la anterior. */
+async function outboxPut(item){
+  const previo = await outboxGet(item.registroId);
+  if (previo && previo.finalizar) item.finalizar = true;
+  const ok = await outboxPutRaw(item);
+  actualizarPill();
+  return ok;
+}
+async function outboxDel(id){
+  const db = await obAbrir();
+  if (db) { try { await idbReq(db.transaction(OB_STORE, 'readwrite').objectStore(OB_STORE).delete(id)); } catch (e) {} }
+  const arr = obLeerLS(); if (arr.length) obEscribirLS(arr.filter(function(x){ return x.registroId !== id; }));
+  actualizarPill();
+}
+
+/* Procesa la cola cuando hay mejor red. Un fallo de red corta el ciclo; se reintenta solo (online, timer, volver a la app). */
+let vaciando = false;
+async function vaciarOutbox(forzar){
+  if (vaciando || sinRed()) return;
+  if (!forzar && redMuyLenta()) return;
+  vaciando = true;
+  try {
+    const ids = (await outboxAll()).filter(function(x){ return !x.muerto; }).map(function(x){ return x.registroId; });
+    for (let k = 0; k < ids.length; k++) {
+      const id = ids[k];
+      const r = await enSerie(async function(){
+        const it = await outboxGet(id); /* se relee: pudo reemplazarse por una versión más nueva mientras esperaba */
+        if (!it || it.muerto) return { omitido: true };
+        const rr = await intentarEnvio(it.payload, 60000);
+        if (rr.ok) { await outboxDel(id); aplicarRespuestaEnviada(it.payload, rr.data, true); }
+        else if (rr.validacion) {
+          it.rechazos = (it.rechazos || 0) + 1; it.ultimoError = rr.error;
+          if (it.rechazos >= 3) it.muerto = true; /* el backend la rechaza una y otra vez: no se reintenta infinito */
+          await outboxPutRaw(it);
+        }
+        return rr;
+      });
+      if (r && r.red) break;
+    }
+  } finally { vaciando = false; actualizarPill(); }
+}
+
+/* Aplica lo que devolvió el servidor (URLs de fotos) si la visita enviada es la que está abierta. */
+function aplicarRespuestaEnviada(payload, data, desdeCola){
+  if (!data) return;
+  if (data.registroId && data.registroId === registroId) {
+    const g = (payload && payload.gestion) || {};
+    if (data.fotoIngresoURL) { fotoIngresoURL = data.fotoIngresoURL; if (fotoIngreso === g.fotoIngreso) fotoIngreso = ''; }
+    if (data.fotoSalidaURL) { fotoSalidaURL = data.fotoSalidaURL; if (fotoSalida === g.fotoSalida) fotoSalida = ''; }
+    persistir(); persistirFotos();
+  }
+  if (desdeCola) {
+    const info = document.getElementById('successInfo');
+    if (info && info.textContent.indexOf(data.registroId) !== -1) info.textContent = 'Registro: ' + data.registroId + ' ✓ enviado';
+    toast('Gestión pendiente enviada ✓');
+  }
+}
+
+/* Indicador flotante de gestiones pendientes de envío (toca para reintentar ya). */
+let _pillEl = null;
+async function actualizarPill(){
+  if (!_pillEl) {
+    _pillEl = document.createElement('button');
+    _pillEl.type = 'button';
+    _pillEl.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:8px;z-index:99997;display:none;border:0;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;color:#fff;background:#d97706;box-shadow:0 3px 10px rgba(0,0,0,.25)';
+    _pillEl.onclick = async function(){ toast(sinRed() ? 'Sin conexión: se enviará solo al volver la señal' : 'Reintentando envío...', sinRed()); await vaciarOutbox(true); };
+    document.body.appendChild(_pillEl);
+  }
+  let items = []; try { items = await outboxAll(); } catch (e) {}
+  const vivos = items.filter(function(x){ return !x.muerto; }).length;
+  const muertos = items.length - vivos;
+  if (vivos > 0) { _pillEl.style.display = 'block'; _pillEl.style.background = '#d97706'; _pillEl.textContent = '⏳ ' + vivos + ' pendiente' + (vivos > 1 ? 's' : '') + ' por enviar'; }
+  else if (muertos > 0) { _pillEl.style.display = 'block'; _pillEl.style.background = '#dc2626'; _pillEl.textContent = '⚠️ ' + muertos + ' envío(s) con error · avisa a tu supervisor'; }
+  else _pillEl.style.display = 'none';
+}
+
+function iniciarResiliencia(){
+  aplicarAjustesPlataforma();
+  window.addEventListener('online', function(){ setTimeout(function(){ vaciarOutbox(false); }, 1500); });
+  const c = conexionInfo(); if (c && c.addEventListener) c.addEventListener('change', function(){ vaciarOutbox(false); });
+  setInterval(function(){ vaciarOutbox(false); }, 20000);
+  setInterval(verificarCorteNocturno, 30000);
+  actualizarPill(); vaciarOutbox(false);
+}
+
+// ===== CIERRE AUTOMÁTICO DE SESIÓN: 11:00 p. m. (hora de Colombia, UTC-5 sin horario de verano) =====
+const CORTE_HORA = 23, LS_LOGOUT_MSG = 'henkelgliss_logout_msg';
+let inicioSesion = 0, cerrandoNocturno = false, avisoCorteMostrado = false;
+function ultimoCorte(ahora){
+  const OFF = 5 * 3600000;
+  const s = new Date(ahora - OFF); /* reloj de Bogotá leído con getUTC* */
+  let c = Date.UTC(s.getUTCFullYear(), s.getUTCMonth(), s.getUTCDate(), CORTE_HORA, 0, 0);
+  if (c > ahora - OFF) c -= 86400000;
+  return c + OFF;
+}
+function proximoCorte(ahora){ return ultimoCorte(ahora) + 86400000; }
+function verificarCorteNocturno(){
+  if (!inicioSesion || !(window._comenzando || registroId)) return;
+  const ahora = Date.now();
+  if (inicioSesion < ultimoCorte(ahora)) { cierreAutomaticoNocturno(); return; }
+  if (!avisoCorteMostrado && proximoCorte(ahora) - ahora <= 5 * 60000) {
+    avisoCorteMostrado = true;
+    toast('⏰ Tu sesión se cerrará automáticamente a las 11:00 p. m. Guarda tu gestión.', true, 6000);
+  }
+}
+async function cierreAutomaticoNocturno(){
+  if (cerrandoNocturno) return; cerrandoNocturno = true;
+  /* Antes de cerrar se intenta enviar lo pendiente. Lo que no salga queda en la cola del celular y se envía luego. */
+  try { await Promise.race([vaciarOutbox(true), esperar(15000)]); } catch (e) {}
+  limpiarSesionLocal();
+  try { localStorage.setItem(LS_LOGOUT_MSG, String(Date.now())); } catch (e) {}
+  location.reload();
+}
+function mostrarMensajeCierreNocturno(){
+  let t = null; try { t = localStorage.getItem(LS_LOGOUT_MSG); localStorage.removeItem(LS_LOGOUT_MSG); } catch (e) {}
+  if (t && (Date.now() - Number(t)) < 12 * 3600000) setTimeout(function(){ toast('Tu sesión se cerró automáticamente a las 11:00 p. m. Inicia sesión de nuevo.', true, 6000); }, 600);
+}
 const PARAM_CACHE_KEY = 'henkelgliss_param_cache_v1';
 const PARAM_CACHE_TTL_MS = 5 * 60 * 1000; /* igual al TTL del caché del backend */
 
@@ -658,6 +924,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const ahora = new Date();
   document.getElementById('heroDate').textContent = ahora.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'});
 
+  iniciarResiliencia();
+  mostrarMensajeCierreNocturno();
   cargarParametrizacion();
 
   document.querySelectorAll('input[name="ventaRealizada"]').forEach(r => r.addEventListener('change', onVentaChange));
@@ -760,6 +1028,7 @@ function comenzar(){
     return;
   }
   window._comenzando=true;
+  inicioSesion=Date.now(); avisoCorteMostrado=false;
   document.getElementById('portadaErr').style.display='none';
   onIdentChange();
   capturarUbicacion();
@@ -811,7 +1080,7 @@ async function confirmarRecuperarSesion(){
   if(!codigo){ errBox.textContent='Ingresa el código de sesión.'; errBox.style.display='block'; return; }
   mostrarLoading('Recuperando sesión...');
   try{
-    const res=await fetch(GAS_URL+'?action=recuperar&registroId='+encodeURIComponent(codigo),{redirect:'follow'});
+    const res=await fetchConTimeout(GAS_URL+'?action=recuperar&registroId='+encodeURIComponent(codigo),{redirect:'follow'},25000);
     const data=await res.json();
     ocultarLoading();
     if(data&&data.success){
@@ -830,6 +1099,7 @@ async function confirmarRecuperarSesion(){
 }
 function aplicarGestionRemota(registroIdRecuperado, g){
   restaurando=true;
+  inicioSesion=Date.now(); avisoCorteMostrado=false; window._comenzando=true;
   registroId=registroIdRecuperado;
   asesorSel={nombre:g.asesorNombre||'',documento:g.asesorDocumento||'',telefono:g.asesorTelefono||''};
   pendAsesorNombre=g.asesorNombre||''; pendPDV=g.puntoVenta||''; pendCiudad=g.ciudad||'';
@@ -924,14 +1194,24 @@ function capturarUbicacion(){
   const t=document.getElementById('locTitle'), d=document.getElementById('locDesc'), btn=document.getElementById('btnGPS');
   if(!navigator.geolocation){ d.textContent='Tu dispositivo no soporta geolocalización.'; return; }
   t.textContent='Obteniendo ubicación...'; d.textContent='Permite el acceso a tu ubicación'; btn.disabled=true;
-  navigator.geolocation.getCurrentPosition(pos => {
+  const ok = pos => {
     ubicacion.lat=+pos.coords.latitude.toFixed(6); ubicacion.lng=+pos.coords.longitude.toFixed(6); ubicacion.acc=Math.round(pos.coords.accuracy);
     aplicarUbicacionUI();
     btn.disabled=false; btn.innerHTML='<svg class="icon icon-sm"><use href="#i-refresh"/></svg>Volver a capturar';
-  }, err => {
+  };
+  const fallo = err => {
     btn.disabled=false; t.textContent='No se pudo obtener la ubicación';
-    d.textContent = err.code===1 ? 'Permiso denegado. Actívalo en el navegador.' : 'Intenta de nuevo en un lugar abierto.';
-  }, { enableHighAccuracy:true, timeout:12000, maximumAge:0 });
+    d.textContent = err.code===1
+      ? (PLAT.ios ? 'Permiso denegado. Actívalo en Ajustes > Privacidad > Localización > Safari.' : 'Permiso denegado. Actívalo en el navegador (candado junto a la dirección).')
+      : 'Intenta de nuevo en un lugar abierto.';
+  };
+  // Alta precisión primero; si el GPS no responde a tiempo (común en iOS/interiores) se reintenta con
+  // precisión normal (red/wifi) en vez de dejar al asesor sin ubicación.
+  navigator.geolocation.getCurrentPosition(ok, err => {
+    if(err.code===1){ fallo(err); return; }
+    d.textContent='Señal GPS débil, reintentando...';
+    navigator.geolocation.getCurrentPosition(ok, fallo, { enableHighAccuracy:false, timeout:20000, maximumAge:120000 });
+  }, { enableHighAccuracy:true, timeout:PLAT.ios?15000:12000, maximumAge:0 });
 }
 function aplicarUbicacionUI(){
   if(!(ubicacion.lat&&ubicacion.lng)) return;
@@ -980,7 +1260,7 @@ async function refrescarParametrizacion(mostrarErrorSiFalla, intentos){
   intentos = intentos || 1;
   for (let i=1; i<=intentos; i++){
     try{
-      const res=await fetch(GAS_URL+'?action=parametrizacion',{redirect:'follow'});
+      const res=await fetchConTimeout(GAS_URL+'?action=parametrizacion',{redirect:'follow'},25000);
       const data=await res.json();
       if(data&&data.success&&Array.isArray(data.pdvs)&&data.pdvs.length>0){
         guardarCacheParametrizacion(data);
@@ -1290,7 +1570,8 @@ function quitarFoto(clave){
   persistir(); persistirFotos();
 }
 function comprimirImagen(archivo, maxLado, calidad, cb){
-  const previoBitmap = window.createImageBitmap ? createImageBitmap(archivo).catch(()=>null) : Promise.resolve(null);
+  const abrirBitmap = () => { try{ return createImageBitmap(archivo,{imageOrientation:'from-image'}).catch(()=>createImageBitmap(archivo)); }catch(e){ return createImageBitmap(archivo); } };
+  const previoBitmap = window.createImageBitmap ? abrirBitmap().catch(()=>null) : Promise.resolve(null);
   previoBitmap.then(bitmap=>{
     if(bitmap){
       try{
@@ -1343,7 +1624,8 @@ function persistir(){
   try{
     const campos=recolectarGestion(); campos.fotoIngreso=''; campos.fotoSalida=''; campos.fotoPremios='';
     if(Array.isArray(campos.competenciaEvidencias)) campos.competenciaEvidencias=campos.competenciaEvidencias.map(ev=>Object.assign({},ev,{foto:''}));
-    const data={ loggedIn:true, guardadoEn:Date.now(), registroId, saved, current, ubicacion, esUsuarioEspecial,
+    if(!inicioSesion && (window._comenzando||registroId)) inicioSesion=Date.now();
+    const data={ loggedIn:true, guardadoEn:Date.now(), inicio:inicioSesion, registroId, saved, current, ubicacion, esUsuarioEspecial,
       fotoIngresoURL, fotoSalidaURL, fotoPremiosURL, campos, asesorSel,
       listas:{ ventasList, vozList, premiosEntregados, competenciaList: competenciaList.map(ev=>Object.assign({},ev,{foto:''})) } };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
@@ -1362,6 +1644,13 @@ function restaurarSesion(){
   let d; try{ d=JSON.parse(raw); }catch(e){ return false; }
   if(!d || !d.loggedIn || !d.campos) return false;
   if(d.guardadoEn && (Date.now()-d.guardadoEn) > SESION_MAX_MS){ limpiarSesionLocal(); return false; }
+  const iniSes=d.inicio||d.guardadoEn||0;
+  if(iniSes && iniSes < ultimoCorte(Date.now())){ /* la sesión quedó abierta pasadas las 11:00 p. m. */
+    limpiarSesionLocal();
+    if(d.registroId){ try{ localStorage.setItem(LS_LOGOUT_MSG, String(Date.now())); }catch(e){} }
+    return false;
+  }
+  inicioSesion=iniSes||Date.now(); window._comenzando=true;
   restaurando=true;
   const g=d.campos;
   asesorSel=d.asesorSel||{nombre:'',documento:'',telefono:''};
@@ -1450,7 +1739,7 @@ function recolectarGestion(){
   return {
     registroId: registroId,
     asesorNombre: getAsesorNombre(), asesorDocumento: getAsesorDocumento(), asesorTelefono: getAsesorTelefono(),
-    puntoVenta: getPDV(), ciudad: getCiudad(), esUsuarioEspecial: esUsuarioEspecial,
+    puntoVenta: getPDV(), ciudad: getCiudad(), esUsuarioEspecial: esUsuarioEspecial, dispositivo: DISPOSITIVO,
     latitud: ubicacion.lat||'', longitud: ubicacion.lng||'', precisionGPS: ubicacion.acc||'',
     fotoIngreso: fotoIngreso, fotoIngresoURL: fotoIngresoURL,
     fotoSalida: fotoSalida, fotoSalidaURL: fotoSalidaURL,
@@ -1471,46 +1760,43 @@ async function guardarModulo(id, finalizar){
   if(errs.length>0){ alert('Completa antes de guardar:\n\n• '+errs.join('\n• ')); return; }
   if(registroPromise){ mostrarLoading('Guardando...'); try{ await registroPromise; }catch(e){} registroPromise=null; }
   const eraNuevo=!registroId;
+  if(!registroId) registroId=generarRegistroId(); /* el ID se genera aquí: así un guardado sin señal puede reenviarse luego sin duplicar la fila */
   const gestion=recolectarGestion();
   saved[id]=true;
   gestion.modulosGuardados=Object.keys(saved).filter(k=>saved[k]).join(', ');
   if(finalizar) gestion.horaSalidaPDV=new Date().toString();
   const tituloModulo=finalizar?'Finalizando gestión...':'Guardando '+(MODS.find(m=>m.id===id)||{}).label+'...';
   mostrarLoading(tituloModulo);
-  // Reintenta solo ante fallas de RED/conexión (fetch rechazado, o respuesta que no es JSON
-  // válido — por ejemplo el celular recibe una página de error del operador en vez del JSON,
-  // muy común con 4G intermitente en campo). Un error de VALIDACIÓN del backend (data.success
-  // === false) no se reintenta, porque reintentar no lo va a arreglar.
-  const INTENTOS=3;
-  for(let intento=1; intento<=INTENTOS; intento++){
-    try{
-      const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({registroId:registroId,gestion:gestion,modulo:id}),redirect:'follow'});
-      const data=await res.json(); ocultarLoading();
-      if(data&&data.success){
-        registroId=data.registroId||registroId;
-        if(eraNuevo&&registroId) mostrarCodigoSesion();
-        if(data.fotoIngresoURL){ fotoIngresoURL=data.fotoIngresoURL; fotoIngreso=''; }
-        if(data.fotoSalidaURL){ fotoSalidaURL=data.fotoSalidaURL; fotoSalida=''; }
-        renderNav(); persistir();
-        if(finalizar){ mostrarExito(data); }
-        else { toast((MODS.find(m=>m.id===id)||{}).label+' guardado'); }
-      } else { saved[id]=false; persistir(); alert('Error: '+(data&&data.error?data.error:'desconocido')); }
-      return;
-    }catch(err){
-      if(intento===INTENTOS){
-        saved[id]=false; ocultarLoading(); persistir();
-        alert('No se pudo guardar por un problema de conexión (probablemente la señal). Tu información NO se perdió, sigue en el celular — revisa la señal e intenta guardar de nuevo.\n\nDetalle técnico: '+err.message);
-        return;
-      }
-      mostrarLoading(tituloModulo+' (reintentando, señal inestable... '+(intento+1)+'/'+INTENTOS+')');
-      await esperar(1200*intento);
-    }
+  // Envío resiliente: con señal buena se guarda de inmediato. Con señal mala/intermitente (sin red, 2G,
+  // timeouts o respuestas que no son JSON) la gestión queda en la cola del celular y se envía sola cuando
+  // mejora la red. Un error de VALIDACIÓN del backend (p. ej. falta la foto) no se encola: se avisa.
+  const payload={registroId:registroId,gestion:gestion,modulo:id};
+  const r=await enviarGestionResiliente(payload, finalizar);
+  ocultarLoading();
+  if(r.ok){
+    const data=r.data;
+    registroId=data.registroId||registroId;
+    if(eraNuevo&&registroId) mostrarCodigoSesion();
+    aplicarRespuestaEnviada(payload, data, false);
+    renderNav(); persistir();
+    if(finalizar){ mostrarExito(data); }
+    else { toast((MODS.find(m=>m.id===id)||{}).label+' guardado'); }
+  } else if(r.encolado){
+    if(eraNuevo&&registroId) mostrarCodigoSesion();
+    renderNav(); persistir();
+    if(finalizar){ mostrarExito({registroId:registroId, pendiente:true}); }
+    else { toast('Sin buena señal: '+((MODS.find(m=>m.id===id)||{}).label||'módulo')+' guardado en el celular. Se enviará solo al volver la señal.', true, 4500); }
+  } else if(r.validacion){
+    saved[id]=false; persistir(); alert('Error: '+(r.error||'desconocido'));
+  } else {
+    saved[id]=false; persistir();
+    alert('No se pudo guardar: el celular no tiene espacio o permiso de almacenamiento para dejar la gestión en cola. Tu información sigue en pantalla — libera espacio o mejora la señal e intenta guardar de nuevo.');
   }
 }
-function toast(msg, warn){ const t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; t.querySelector('.icon use').setAttribute('href', warn?'#i-alert':'#i-check'); t.classList.toggle('warn', !!warn); t.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.remove('show'),2200); }
+function toast(msg, warn, ms){ const t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; t.querySelector('.icon use').setAttribute('href', warn?'#i-alert':'#i-check'); t.classList.toggle('warn', !!warn); t.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.remove('show'),ms||2200); }
 function mostrarLoading(m){ document.getElementById('loadingMsg').textContent=m; document.getElementById('loadingOverlay').classList.add('show'); }
 function ocultarLoading(){ document.getElementById('loadingOverlay').classList.remove('show'); }
-function mostrarExito(d){ document.getElementById('successInfo').textContent='Registro: '+d.registroId; document.getElementById('successModal').classList.add('show'); }
+function mostrarExito(d){ document.getElementById('successInfo').textContent='Registro: '+d.registroId+(d.pendiente?' — PENDIENTE DE ENVÍO: quedó guardado en el celular y se enviará solo cuando haya buena señal. No borres los datos del navegador.':''); document.getElementById('successModal').classList.add('show'); }
 
 // ===== SALIDA DEL PDV (resumen) =====
 function renderResumen(){
@@ -1618,7 +1904,8 @@ function cerrarSesion(){
   const aviso = registroId
     ? '¿Cerrar tu sesión en este dispositivo?\n\nTu código de sesión es ' + registroId + '. Con ese código puedes recuperar la gestión desde "¿Ya tienes una gestión en curso?" en la pantalla de inicio.'
     : '¿Cerrar tu sesión en este dispositivo?\n\nAún no has guardado el Ingreso, así que lo que llevas escrito se perderá.';
-  if (!confirm(aviso)) return;
+  const pendientes=(_pillEl&&_pillEl.style.display!=='none'&&/pendiente/.test(_pillEl.textContent))?'\n\n⚠️ Tienes gestiones pendientes de envío (sin señal). Seguirán guardadas en este celular y se enviarán cuando haya buena señal; no borres los datos del navegador.':'';
+  if (!confirm(aviso+pendientes)) return;
   limpiarSesionLocal();
   location.reload();
 }
