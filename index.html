@@ -1916,5 +1916,247 @@ function uid(pfx){ return pfx+'_'+Date.now()+'_'+Math.random().toString(36).slic
 function escAttr(s){ return String(s==null?'':s).replace(/"/g,'&quot;'); }
 function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 </script>
+<!-- ============ TUTORIAL GUIADO (botón flotante + foco con fondo gris) ============ -->
+<style>
+  .tut-btn{position:fixed;right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 96px);width:46px;height:46px;border-radius:50%;border:1.5px solid rgba(255,255,255,.75);background:rgba(225,0,15,.5);color:#fff;font:800 22px/1 inherit;z-index:9000;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 6px 16px rgba(0,0,0,.25);cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.82;padding:0;transition:opacity .2s,transform .2s}
+  .tut-btn:active{transform:scale(.92);opacity:1}
+  .tut-btn.pulse{animation:tutPulse 2.2s infinite}
+  @keyframes tutPulse{0%{box-shadow:0 0 0 0 rgba(225,0,15,.6)}70%{box-shadow:0 0 0 14px rgba(225,0,15,0)}100%{box-shadow:0 0 0 0 rgba(225,0,15,0)}}
+  .tut-layer{position:fixed;inset:0;z-index:100000;touch-action:none;background:transparent}
+  .tut-pane{position:fixed;z-index:100000;background:rgba(45,45,45,.66);-webkit-backdrop-filter:grayscale(1) blur(1.5px);backdrop-filter:grayscale(1) blur(1.5px);touch-action:none}
+  .tut-ring{position:fixed;z-index:100001;border-radius:14px;border:2.5px solid #fff;box-shadow:0 0 0 3px rgba(225,0,15,.92),0 0 18px 4px rgba(225,0,15,.5);pointer-events:none;transition:left .22s ease,top .22s ease,width .22s ease,height .22s ease}
+  .tut-tip{position:fixed;z-index:100002;left:12px;right:12px;max-width:390px;margin:0 auto;background:#fff;color:#241c1c;border-radius:18px;padding:14px 16px 12px;box-shadow:0 14px 44px rgba(0,0,0,.45);font-size:13.5px;line-height:1.45}
+  .tut-ctx{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#e1000f;margin-bottom:3px}
+  .tut-tt{font-size:15.5px;font-weight:800;margin-bottom:5px}
+  .tut-tx{margin:0 0 11px}
+  .tut-act{display:flex;align-items:center;gap:8px}
+  .tut-cnt{font-size:11.5px;color:#7a6f6f;font-weight:700;flex:1}
+  .tut-act button{border:0;border-radius:11px;padding:9px 14px;font:700 13px/1 inherit;cursor:pointer;min-height:38px}
+  .tut-b-sec{background:#f1ecec;color:#241c1c}
+  .tut-b-pri{background:#e1000f;color:#fff}
+  .tut-b-x{background:transparent;color:#7a6f6f;padding:9px 6px !important}
+</style>
+<script>
+(function(){
+  'use strict';
+  var LS_VISTO = 'henkelgliss_tutorial_visto';
+  var activo = false, pasos = [], idx = 0, btn = null, layer = null, ring = null, tip = null, panes = [];
+
+  // ---------- utilidades ----------
+  function $(s, r){ return (r || document).querySelector(s); }
+  function visible(el){
+    if (!el || !el.getClientRects || !el.getClientRects().length) return false;
+    var cs = getComputedStyle(el);
+    return cs.visibility !== 'hidden' && cs.display !== 'none';
+  }
+  function resolver(sel){
+    try { return typeof sel === 'function' ? sel() : $(sel); } catch (e) { return null; }
+  }
+  function enContextoFijo(el){
+    for (var n = el; n && n !== document.body; n = n.parentElement) {
+      if (getComputedStyle(n).position === 'fixed') return true;
+    }
+    return false;
+  }
+  function campo(id){ var e = document.getElementById(id); return e ? (e.closest('.field') || e) : null; }
+  function mod(id){ return '[data-mod="' + id + '"]'; }
+  function etiquetaModulo(){
+    try { var m = MODS.filter(function(x){ return x.id === current; })[0]; return m ? m.label : ''; } catch (e) { return ''; }
+  }
+  function P(sel, titulo, texto){ var el = resolver(sel); return visible(el) ? { el: el, t: titulo, x: texto } : null; }
+  function compactar(arr){ return arr.filter(Boolean); }
+
+  // ---------- pasos por pantalla ----------
+  function pasosGenerales(){
+    return compactar([
+      P('.progress-wrap', 'Barra de avance', 'Te dice en qué módulo estás y cuáles ya guardaste: cada raya se marca al guardar su módulo.'),
+      P('#btnPersona', 'Mi información', 'Abre tus datos, el punto de venta actual y tu CÓDIGO DE SESIÓN, que sirve para recuperar la gestión si cambias de celular o se cierra la app.'),
+      P('#fab', 'Menú de módulos', 'Te mueve entre Ingreso, Ventas, Premios, Voz del Consumidor, Competencia y Salida. El candado 🔒 indica módulo bloqueado (falta guardar el Ingreso) y el check ✓, módulo guardado.'),
+      P(function(){ return (typeof _pillEl !== 'undefined' && _pillEl && _pillEl.style.display !== 'none') ? _pillEl : null; }, 'Pendientes por enviar', 'Este aviso aparece cuando no había buena señal: tu información quedó guardada en el celular y se envía sola al volver la red. Tócalo para reintentar ya.'),
+      P('#btnSalir', 'Cerrar sesión', 'Cierra tu sesión en este celular. Úsalo solo al terminar tu jornada; de todas formas, la sesión se cierra sola a las 11:00 p. m.')
+    ]);
+  }
+  function guardar(id, titulo, texto){ return P(mod(id) + ' .save-row .btn', titulo, texto); }
+
+  function pasosPortada(){
+    var manual = visible($('#identManual'));
+    return compactar([
+      P(function(){ var e = manual ? $('#identManual') : $('#asesorNombre'); return manual ? e : (e && e.closest('.pselect')); },
+        'Tu nombre', manual ? 'No se cargó la lista de asesores, así que escribe tu nombre completo, documento y teléfono.' : 'Toca aquí y selecciona tu nombre de la lista. Tu documento y el catálogo de venta que te corresponde se asignan solos.'),
+      P(function(){ var e = visible($('#ciudadTexto')) ? $('#ciudadTexto') : $('#ciudad'); return e && (e.closest('.pselect') || e); },
+        'Ciudad', 'Elige la ciudad donde vas a trabajar hoy. Al elegirla se habilita la lista de puntos de venta.'),
+      P(function(){ var e = visible($('#pdvTexto')) ? $('#pdvTexto') : $('#puntoVenta'); return e && (e.closest('.pselect') || e); },
+        'Punto de venta', 'Selecciona el punto donde estás. Si aparece deshabilitado, primero elige la ciudad.'),
+      P('.btn-portada', 'Comenzar', 'Inicia tu visita: pide permiso para la ubicación GPS (acéptalo), crea tu gestión y abre el módulo de Ingreso.'),
+      P('.portada-foot a', 'Recuperar sesión', 'Si ya empezaste una gestión y perdiste la sesión (cambio de celular, borraste datos), toca aquí e ingresa tu código de sesión para continuar donde ibas.')
+    ]);
+  }
+
+  function pasosModulo(id){
+    var M = mod(id), h = M + ' .card-head';
+    switch (id) {
+      case 'ingreso': return compactar([
+        P(h, 'Ingreso al PDV', 'Aquí empieza tu visita. Es obligatorio: hasta que lo guardes, los demás módulos están bloqueados con candado 🔒. Necesitas ubicación GPS y una foto.'),
+        P(M + ' .merc-chip', 'Tus datos', 'Muestra tu nombre y documento. Si te equivocaste de asesor, toca "Cambiar" para volver a la pantalla de inicio.'),
+        P(function(){ return document.querySelectorAll(M + ' .merc-chip')[1]; }, 'Punto de venta', 'El punto y la ciudad donde estás trabajando. Verifica que sean los correctos antes de guardar.'),
+        P('#locBox', 'Ubicación GPS (obligatoria)', 'Se captura al pulsar Comenzar. Cuando se pone verde, quedó registrada y verás la precisión en metros. Es la prueba de que estás en el punto.'),
+        P('#btnGPS', 'Actualizar ubicación', 'Si el GPS falló o te moviste, toca aquí para capturarla de nuevo. Funciona mejor en un lugar abierto y con la ubicación del celular activada.'),
+        P('#uploadIngreso', 'Foto de ingreso (obligatoria)', 'Toca el recuadro para abrir la cámara y toma la foto de la entrada o fachada del punto. "Cambiar" la repite y "Quitar" la elimina. Sin foto no se puede guardar.'),
+        guardar(id, 'Guardar Ingreso', 'Guarda tu entrada y desbloquea los demás módulos. Si no hay buena señal, se guarda en el celular y se envía sola cuando vuelva la red.')
+      ]);
+      case 'ventas': return compactar([
+        P(h, 'Ventas', 'Registra lo que se vendió en esta visita. Todo queda asociado a tu punto de venta.'),
+        P(M + ' .info-banner', 'Catálogo activo', 'Muestra con qué catálogo trabajas: el estándar (11 productos) o el completo, según tu perfil. Se asigna automáticamente.'),
+        P(M + ' .opt-grid', '¿Se realizó venta? (obligatorio)', 'Elige Sí si vendiste algo o No si no hubo venta. Con Sí se abre la lista de productos y cantidades; con No te pide el motivo.'),
+        P('#ventaNo', 'Motivo de no venta', 'Selecciona por qué no hubo venta (aún tiene inventario, local cerrado, etc.).'),
+        P('#listaVentas .item', 'Producto vendido', 'Toca el campo del producto para buscarlo y elegirlo, y escribe la cantidad vendida. El tacho rojo elimina esta línea.'),
+        P('#ventaSi > .btn', 'Agregar producto vendido', 'Añade una línea por cada producto distinto que vendiste.'),
+        guardar(id, 'Guardar Ventas', 'Guarda este módulo. Puedes volver, corregir y guardar de nuevo cuando quieras.')
+      ]);
+      case 'premios': return compactar([
+        P(h, 'Premios redimidos', 'Aquí registras cuántos premios (obsequios) entregaste a los consumidores en el punto.'),
+        P(M + ' .info-banner', 'Control de obsequios', 'Debes registrar la cantidad de CADA premio del catálogo, aunque sea 0.'),
+        P('#listaEntregaPremios > div', 'Cantidad entregada', 'Cada fila es un premio: escribe a la derecha cuántos entregaste. Debes llenar todas las filas (usa 0 si no entregaste ninguno).'),
+        P(function(){ return campo('premiosObservaciones'); }, 'Observaciones', 'Opcional: notas sobre los premios o las entregas.'),
+        P(function(){ return campo('uploadPremios'); }, 'Foto del inventario (opcional)', 'Foto de los premios que quedan en el punto, como evidencia.'),
+        guardar(id, 'Guardar Premios', 'Guarda este módulo. Si te falta una cantidad, te avisará cuál.')
+      ]);
+      case 'voz': if (!$('#listaVoz').children.length) renderVoz(); /* pinta el aviso "agrega la opinión" si aún no se ha dibujado */
+        return compactar([
+        P(h, 'Voz del Consumidor', 'Aquí registras la opinión de los consumidores con quienes hablaste: un bloque por cada persona.'),
+        P('#listaVoz .item', 'Bloque de un consumidor', 'Responde tocando las opciones con caritas; las marcadas con * son obligatorias. El tacho rojo elimina a este consumidor.'),
+        P('#listaVoz .empty-hint', 'Aún no hay opiniones', 'Cuando hables con un consumidor, agrégalo con el botón de abajo.'),
+        P(M + ' .card > .btn.btn-soft', 'Agregar opinión', 'Abre el formulario de un nuevo consumidor. Repite por cada persona que encuestes.'),
+        guardar(id, 'Guardar Voz del Consumidor', 'Guarda todas las opiniones capturadas. Se revisa que no falte ninguna respuesta obligatoria.')
+      ]);
+      case 'competencia': return compactar([
+        P(h, 'Actividad de la Competencia', 'Reporta si hay marcas competidoras haciendo exhibición, promoción o impulso en el punto, con foto como evidencia.'),
+        P(M + ' .opt-grid', '¿Hay actividad? (obligatorio)', 'Elige Sí o No. Con Sí podrás agregar cada evidencia con tipo de actividad, marca, descripción y foto.'),
+        P('#listaCompetencia .item', 'Evidencia', 'Selecciona el tipo de actividad, escribe la marca y una descripción, y toma la foto (obligatoria). El tacho rojo elimina esta evidencia.'),
+        P('#competenciaSi > .btn', 'Agregar evidencia', 'Añade una evidencia por cada actividad distinta que observes.'),
+        guardar(id, 'Guardar Actividad de la Competencia', 'Guarda este módulo. Si dijiste "No", basta con guardar.')
+      ]);
+      case 'salida': return compactar([
+        P(h, 'Salida del PDV', 'Es el cierre de tu visita. Revisa todo antes de finalizar.'),
+        P('#resumenContenido', 'Resumen de tu gestión', 'Aquí ves lo que capturaste y, al final, el estado de cada módulo: "Guardado" o "Pendiente". Vuelve a los pendientes antes de finalizar.'),
+        P('#uploadSalida', 'Foto de salida (obligatoria)', 'Toma una foto al salir del punto. Sin ella no se puede finalizar la gestión.'),
+        P(function(){ return campo('proximaVisita'); }, 'Próxima visita', 'Opcional: la fecha en que volverás al punto.'),
+        P(function(){ return campo('observacionesGenerales'); }, 'Observaciones finales', 'Opcional: compromisos y notas de la visita.'),
+        P(function(){ var b = $(M + ' .btn-success'); return b && b.parentElement; }, 'Compartir', 'WhatsApp envía el resumen a quien quieras y Copiar lo copia para pegarlo donde lo necesites.'),
+        guardar(id, 'Finalizar gestión', 'Cierra la visita y envía todo. Después aparece el número de registro y puedes iniciar una nueva gestión.')
+      ]);
+    }
+    return [];
+  }
+
+  // Detecta en qué parte de la herramienta está el usuario y arma los pasos de esa pantalla.
+  function construirPasos(){
+    function modal(id){ var e = document.getElementById(id); return e && e.classList.contains('show'); }
+    if (modal('successModal')) return { ctx: 'Gestión finalizada', pasos: compactar([ P('#successModal .modal', 'Gestión finalizada', 'Tu visita quedó registrada. Si no hubo buena señal, dirá "pendiente de envío" y se enviará sola. Toca "Nueva gestión" para empezar otra visita.') ]) };
+    if (modal('codigoSesionModal')) return { ctx: 'Código de sesión', pasos: compactar([ P('#codigoSesionModal .modal', 'Tu código de sesión', 'Es la llave para recuperar esta gestión si cambias de celular o se borran los datos. Cópialo o anótalo y toca "Entendido".') ]) };
+    if (modal('recuperarModal')) return { ctx: 'Recuperar sesión', pasos: compactar([ P('#recuperarModal .modal', 'Recuperar sesión', 'Escribe aquí el código de sesión que recibiste al iniciar (empieza por HKN-) y toca "Recuperar" para continuar tu gestión.') ]) };
+    if (modal('personaModal')) return { ctx: 'Mi información', pasos: compactar([
+      P('#personaModal .modal', 'Mi información', 'Tus datos de asesor, la ciudad y el catálogo de venta que te corresponde.'),
+      P(function(){ var e = $('#pCodigoSesion'); return e && e.closest('.merc-chip'); }, 'Código de sesión', 'Guárdalo: te permite recuperar esta gestión desde otro celular. "Copiar" lo copia al portapapeles.'),
+      P(function(){ var e = $('#pPdvActual'); return e && e.closest('.merc-chip'); }, 'Punto de venta', 'Si cambias de punto, toca "Cambiar" para volver a la pantalla de inicio.')
+    ]) };
+    if (typeof modgridOpen !== 'undefined' && modgridOpen) return { ctx: 'Módulos', pasos: compactar([ P('#modgrid', 'Menú de módulos', 'Toca un módulo para ir a él. 🔒 = bloqueado hasta guardar el Ingreso; ✓ = ya guardado. Puedes volver a cualquiera para corregirlo.') ]) };
+    var portada = document.getElementById('portada');
+    if (portada && portada.style.display !== 'none' && !portada.classList.contains('hide')) return { ctx: 'Inicio', pasos: pasosPortada() };
+    return { ctx: etiquetaModulo() || 'Módulo', pasos: pasosModulo(current).concat(pasosGenerales()) };
+  }
+
+  // ---------- interfaz ----------
+  function crearDOM(){
+    layer = document.createElement('div'); layer.className = 'tut-layer';
+    panes = []; for (var i = 0; i < 4; i++) { var p = document.createElement('div'); p.className = 'tut-pane'; panes.push(p); }
+    ring = document.createElement('div'); ring.className = 'tut-ring';
+    tip = document.createElement('div'); tip.className = 'tut-tip'; tip.setAttribute('role', 'dialog'); tip.setAttribute('aria-live', 'polite');
+    document.body.appendChild(layer); panes.forEach(function(p){ document.body.appendChild(p); });
+    document.body.appendChild(ring); document.body.appendChild(tip);
+    window.addEventListener('resize', reposicionar); window.addEventListener('scroll', reposicionar, true);
+    document.addEventListener('keydown', teclas);
+  }
+  function quitarDOM(){
+    [layer, ring, tip].concat(panes).forEach(function(n){ if (n && n.parentNode) n.parentNode.removeChild(n); });
+    layer = ring = tip = null; panes = [];
+    window.removeEventListener('resize', reposicionar); window.removeEventListener('scroll', reposicionar, true);
+    document.removeEventListener('keydown', teclas);
+  }
+  function teclas(e){ if (e.key === 'Escape') cerrar(); else if (e.key === 'ArrowRight') siguiente(); else if (e.key === 'ArrowLeft') anterior(); }
+
+  function traerAVista(el){
+    if (enContextoFijo(el)) return;
+    var vh = window.innerHeight, r = el.getBoundingClientRect();
+    var tb = $('.topbar'), th = tb ? tb.getBoundingClientRect().bottom : 0;
+    var alto = Math.min(r.height, vh * 0.45);
+    var deseado = Math.max(th + 14, (vh - alto) / 2 - 70);
+    window.scrollTo(0, Math.max(0, window.pageYOffset + r.top - deseado));
+  }
+
+  function mostrar(){
+    var p = pasos[idx]; if (!p) return;
+    var ultimo = idx === pasos.length - 1;
+    tip.innerHTML = '<div class="tut-ctx">Tutorial · ' + esc(pasos.ctx) + '</div>' +
+      '<div class="tut-tt">' + esc(p.t) + '</div><p class="tut-tx">' + esc(p.x) + '</p>' +
+      '<div class="tut-act"><span class="tut-cnt">' + (idx + 1) + ' de ' + pasos.length + '</span>' +
+      '<button type="button" class="tut-b-x" data-a="x">Salir</button>' +
+      (idx > 0 ? '<button type="button" class="tut-b-sec" data-a="p">Anterior</button>' : '') +
+      '<button type="button" class="tut-b-pri" data-a="n">' + (ultimo ? '¡Listo!' : 'Siguiente') + '</button></div>';
+    traerAVista(p.el);
+    reposicionar();
+  }
+  function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  function reposicionar(){
+    if (!activo || !tip) return;
+    var p = pasos[idx]; if (!p || !p.el) return;
+    var vw = window.innerWidth, vh = window.innerHeight, r = p.el.getBoundingClientRect(), pad = 6;
+    var x = Math.max(4, r.left - pad), y = Math.max(4, r.top - pad);
+    var w = Math.min(vw - 4, r.right + pad) - x, h = Math.min(vh - 4, r.bottom + pad) - y;
+    if (w < 24) w = 24; if (h < 24) h = 24;
+    var th = tip.offsetHeight, top;
+    if (vh - (y + h) >= th + 16) top = y + h + 10;
+    else if (y >= th + 16) top = y - th - 10;
+    else { h = Math.max(60, Math.min(h, vh - th - 30 - y)); top = vh - th - 12; } /* elemento muy alto: se resalta su parte visible y la tarjeta va abajo */
+    tip.style.top = Math.max(8, top) + 'px';
+    ring.style.left = x + 'px'; ring.style.top = y + 'px'; ring.style.width = w + 'px'; ring.style.height = h + 'px';
+    var g = [ [0, 0, vw, y], [0, y + h, vw, Math.max(0, vh - y - h)], [0, y, x, h], [x + w, y, Math.max(0, vw - x - w), h] ];
+    panes.forEach(function(pn, i){ pn.style.left = g[i][0] + 'px'; pn.style.top = g[i][1] + 'px'; pn.style.width = g[i][2] + 'px'; pn.style.height = g[i][3] + 'px'; });
+  }
+
+  function siguiente(){ if (idx >= pasos.length - 1) { cerrar(); return; } idx++; mostrar(); }
+  function anterior(){ if (idx > 0) { idx--; mostrar(); } }
+  function abrir(){
+    if (activo) return;
+    var c = construirPasos();
+    if (!c.pasos.length) { try { toast('No hay nada que explicar en esta pantalla todavía.', true); } catch (e) {} return; }
+    pasos = c.pasos; pasos.ctx = c.ctx; idx = 0; activo = true;
+    try { localStorage.setItem(LS_VISTO, '1'); } catch (e) {}
+    btn.classList.remove('pulse'); btn.style.display = 'none';
+    crearDOM();
+    tip.addEventListener('click', function(e){
+      var a = e.target && e.target.getAttribute && e.target.getAttribute('data-a');
+      if (a === 'n') siguiente(); else if (a === 'p') anterior(); else if (a === 'x') cerrar();
+    });
+    mostrar();
+  }
+  function cerrar(){ if (!activo) return; activo = false; quitarDOM(); btn.style.display = 'flex'; }
+
+  // ---------- botón flotante ----------
+  function iniciar(){
+    btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'tut-btn'; btn.textContent = '?';
+    btn.setAttribute('aria-label', 'Tutorial: explica la pantalla en la que estás'); btn.title = 'Tutorial';
+    var visto = false; try { visto = !!localStorage.getItem(LS_VISTO); } catch (e) {}
+    if (!visto) btn.classList.add('pulse'); /* llama la atención hasta que lo usen por primera vez */
+    btn.addEventListener('click', abrir);
+    document.body.appendChild(btn);
+  }
+  if (document.body) iniciar(); else document.addEventListener('DOMContentLoaded', iniciar);
+  window.abrirTutorial = abrir;
+})();
+</script>
+
 </body>
 </html>
