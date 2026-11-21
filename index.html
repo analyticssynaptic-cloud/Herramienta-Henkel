@@ -1940,6 +1940,26 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 (function(){
   'use strict';
   var LS_VISTO = 'henkelgliss_tutorial_visto';
+  var LS_VOZ = 'henkelgliss_tutorial_voz';
+  var vozTut = true; try { vozTut = localStorage.getItem(LS_VOZ) !== '0'; } catch (e) {}
+  /* El tutorial lee en voz alta cada paso (se puede silenciar con el botón 🔊) */
+  function hablarTut(texto){
+    if (!vozTut || !('speechSynthesis' in window)) return;
+    try {
+      speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(String(texto).replace(/🔒/g, ' candado ').replace(/[✓✔]/g, ' check ').replace(/[*"]/g, ''));
+      u.lang = 'es-CO'; u.rate = 1.0;
+      var v = speechSynthesis.getVoices().filter(function(x){ return /^es/i.test(x.lang); })[0];
+      if (v) u.voice = v;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  function alternarVozTut(){
+    vozTut = !vozTut;
+    try { localStorage.setItem(LS_VOZ, vozTut ? '1' : '0'); } catch (e) {}
+    if (!vozTut && window.speechSynthesis) speechSynthesis.cancel();
+    mostrar();
+  }
   var activo = false, pasos = [], idx = 0, btn = null, layer = null, ring = null, tip = null, panes = [];
 
   // ---------- utilidades ----------
@@ -2100,11 +2120,13 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
     tip.innerHTML = '<div class="tut-ctx">Tutorial · ' + esc(pasos.ctx) + '</div>' +
       '<div class="tut-tt">' + esc(p.t) + '</div><p class="tut-tx">' + esc(p.x) + '</p>' +
       '<div class="tut-act"><span class="tut-cnt">' + (idx + 1) + ' de ' + pasos.length + '</span>' +
+      '<button type="button" class="tut-b-x" data-a="v" aria-label="Voz del tutorial" title="Voz del tutorial">' + (vozTut ? '🔊' : '🔇') + '</button>' +
       '<button type="button" class="tut-b-x" data-a="x">Salir</button>' +
       (idx > 0 ? '<button type="button" class="tut-b-sec" data-a="p">Anterior</button>' : '') +
       '<button type="button" class="tut-b-pri" data-a="n">' + (ultimo ? '¡Listo!' : 'Siguiente') + '</button></div>';
     traerAVista(p.el);
     reposicionar();
+    hablarTut(p.t + '. ' + p.x);
   }
   function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 
@@ -2137,11 +2159,11 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
     crearDOM();
     tip.addEventListener('click', function(e){
       var a = e.target && e.target.getAttribute && e.target.getAttribute('data-a');
-      if (a === 'n') siguiente(); else if (a === 'p') anterior(); else if (a === 'x') cerrar();
+      if (a === 'n') siguiente(); else if (a === 'p') anterior(); else if (a === 'x') cerrar(); else if (a === 'v') alternarVozTut();
     });
     mostrar();
   }
-  function cerrar(){ if (!activo) return; activo = false; quitarDOM(); btn.style.display = 'flex'; }
+  function cerrar(){ if (!activo) return; activo = false; try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} quitarDOM(); btn.style.display = 'flex'; }
 
   // ---------- botón flotante ----------
   function iniciar(){
@@ -2247,6 +2269,7 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
         <button type="button" data-g="venta">▶ Registrar venta</button>
         <button type="button" data-g="premios">▶ Premios</button>
         <button type="button" data-g="salida">▶ Salir del PDV</button>
+        <button type="button" data-tut="1">🎓 Tutorial hablado</button>
         <button type="button" data-cat="1">📦 Ver catálogo</button>
       </div>
       <div class="aria-row">
@@ -2491,6 +2514,7 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
     var b = e.target.closest ? e.target.closest('button') : e.target; if(!b) return;
     if(b.getAttribute('data-g')) mostrarGuia(b.getAttribute('data-g'), b.textContent.replace(/^▶\s*/, ''));
     else if(b.getAttribute('data-cat')) mostrarCatalogo('Ver catálogo');
+    else if(b.getAttribute('data-tut')){ $('ariaCerrar').click(); setTimeout(function(){ if(window.abrirTutorial) window.abrirTutorial(); }, 250); }
   });
   $('ariaVoz').onclick = function(){
     vozActiva = !vozActiva;
