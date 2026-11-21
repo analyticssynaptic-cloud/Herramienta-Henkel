@@ -2160,12 +2160,12 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 
 <!-- ============ ARIA · AYUDA CON IA Y VOZ ============ -->
 <style>
-  .aria-btn{position:fixed;left:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 92px);z-index:9000;width:58px;height:58px;border-radius:50%;border:2px solid #00d4ff;padding:0;cursor:pointer;background:#050a10;overflow:hidden;box-shadow:0 0 0 3px rgba(0,212,255,.25),0 8px 22px rgba(0,0,0,.35)}
+  .aria-btn{position:fixed;right:9px;bottom:calc(env(safe-area-inset-bottom,0px) + 156px);z-index:9000;width:56px;height:56px;border-radius:50%;border:2px solid #00d4ff;padding:0;cursor:pointer;background:#050a10;overflow:hidden;box-shadow:0 0 0 3px rgba(0,212,255,.25),0 8px 22px rgba(0,0,0,.35)}
   .aria-btn img{width:100%;height:100%;object-fit:cover;display:block}
   .aria-btn:active{transform:scale(.94)}
   .aria-panel{position:fixed;inset:0;z-index:9500;display:none;background:rgba(10,8,8,.55);align-items:flex-end;justify-content:center}
   .aria-panel.open{display:flex}
-  .aria-card{width:100%;max-width:520px;height:min(78vh,620px);background:#fff;color:#241c1c;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding:14px 16px calc(12px + env(safe-area-inset-bottom,0px));box-shadow:0 -10px 40px rgba(0,0,0,.25)}
+  .aria-card{width:100%;max-width:520px;height:min(86vh,700px);background:#fff;color:#241c1c;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding:14px 16px calc(12px + env(safe-area-inset-bottom,0px));box-shadow:0 -10px 40px rgba(0,0,0,.25)}
   .aria-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
   .aria-head img{width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #00d4ff}
   .aria-head .aria-tit{flex:1;line-height:1.2}
@@ -2174,7 +2174,7 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
   .aria-head .aria-x{border:0;background:#f1ecec;border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer}
   .aria-conectando{flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center}
   .aria-conectando.on{display:flex}
-  .aria-anillo{width:64px;height:64px;border-radius:50%;border:4px solid #d9f7ff;border-top-color:#00a8d6;animation:ariaGira 0.9s linear infinite}
+  .aria-anillo{width:64px;height:64px;border-radius:50%;border:4px solid #d9f7ff;border-top-color:#00a8d6;animation:ariaGira .9s linear infinite}
   @keyframes ariaGira{to{transform:rotate(360deg)}}
   .aria-conectando p{margin:0;font-size:14.5px;color:#4a4444}
   .aria-chat{flex:1;display:none;flex-direction:column;min-height:0}
@@ -2189,6 +2189,31 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
   .aria-prod-txt b{display:block;font-size:13.5px}
   .aria-prod-txt span{display:block;color:#7a6f6f;font-size:11.5px;margin:1px 0 4px}
   .aria-prod-txt ul{margin:0;padding-left:16px}
+  .aria-cat{align-self:stretch;display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .aria-cat .it{background:#fff;border:1px solid #e3dada;border-radius:14px;padding:8px;text-align:center;font-size:12px;line-height:1.3;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+  .aria-cat .it img{width:100%;height:96px;object-fit:contain;background:#faf7f7;border-radius:10px;margin-bottom:6px}
+  .aria-cat .it b{display:block;font-size:12px}
+  .aria-cat .it span{color:#7a6f6f;font-size:11px}
+  .aria-guia{align-self:stretch;background:#fff;border:1px solid #e3dada;border-radius:14px;padding:10px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+  .aria-guia h4{margin:0 0 8px;font-size:13.5px}
+  .aria-tel{width:158px;height:268px;margin:0 auto;border:5px solid #241c1c;border-radius:22px;background:#fff;overflow:hidden;position:relative}
+  .aria-tel-h{background:linear-gradient(135deg,#e1000f,#7a0008);color:#fff;font-size:10px;font-weight:800;padding:9px 8px}
+  .aria-tel-b{padding:6px 6px 0;animation:ariaFade .45s ease}
+  @keyframes ariaFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .aria-it{position:relative;margin:6px 0;border:1px solid #e3dada;border-radius:8px;padding:7px;font-size:9.5px;line-height:1.25;background:#fff}
+  .aria-it.ft{height:46px;display:flex;align-items:center;justify-content:center;background:#f5f1f1;color:#7a6f6f}
+  .aria-it.bt{background:#e1000f;color:#fff;text-align:center;font-weight:800;border-color:#e1000f}
+  .aria-it.foco{border-color:#e1000f;box-shadow:0 0 0 2px rgba(225,0,15,.35);animation:ariaFoco 1.2s infinite}
+  .aria-it.foco::after{content:'👆';position:absolute;right:6px;bottom:-16px;font-size:20px;animation:ariaToque 1.2s infinite}
+  @keyframes ariaFoco{0%,100%{box-shadow:0 0 0 2px rgba(225,0,15,.35)}50%{box-shadow:0 0 0 6px rgba(225,0,15,.12)}}
+  @keyframes ariaToque{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-5px) scale(.92)}}
+  .aria-cap{margin:10px 0 6px;font-size:13.5px;line-height:1.4;min-height:56px}
+  .aria-cap b{display:block;color:#e1000f;font-size:11.5px;letter-spacing:.3px;text-transform:uppercase}
+  .aria-ctl{display:flex;align-items:center;gap:6px;justify-content:center}
+  .aria-ctl button{border:0;border-radius:10px;min-width:40px;min-height:38px;background:#f1ecec;font-size:15px;cursor:pointer}
+  .aria-pts{display:flex;gap:4px;justify-content:center;margin:6px 0 0}
+  .aria-pts i{width:7px;height:7px;border-radius:50%;background:#d9d0d0}
+  .aria-pts i.on{background:#e1000f}
   .aria-sug{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}
   .aria-sug button{border:1px solid #d9d0d0;background:#fff;border-radius:16px;padding:6px 10px;font-size:12.5px;cursor:pointer;color:#241c1c}
   .aria-row{display:flex;gap:8px;align-items:center}
@@ -2214,12 +2239,15 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
     </div>
     <div class="aria-chat" id="ariaChat">
       <div class="aria-log" id="ariaLog">
-        <div class="aria-m a">Hola, soy ARIA. Te ayudo con la herramienta Henkel GLISS, la campaña y nuestros productos GLISS. Escribe o habla tu pregunta.</div>
+        <div class="aria-m a">Hola, soy ARIA. Te ayudo con la herramienta Henkel GLISS, la campaña y nuestros productos. Escribe o habla, o toca una guía animada para ver cómo se hace paso a paso.</div>
       </div>
       <div class="aria-sug" id="ariaSug">
-        <button type="button" data-q="¿Cómo registro una visita?">¿Cómo registro una visita?</button>
-        <button type="button" data-q="¿Qué productos GLISS hay en la campaña?">Productos GLISS</button>
-        <button type="button" data-q="¿Qué premios hay?">Premios</button>
+        <button type="button" data-g="completa">▶ Recorrido completo</button>
+        <button type="button" data-g="ingreso">▶ Ingresar al PDV</button>
+        <button type="button" data-g="venta">▶ Registrar venta</button>
+        <button type="button" data-g="premios">▶ Premios</button>
+        <button type="button" data-g="salida">▶ Salir del PDV</button>
+        <button type="button" data-cat="1">📦 Ver catálogo</button>
       </div>
       <div class="aria-row">
         <button class="aria-mic" id="ariaMic" type="button" aria-label="Hablar" title="Hablar">🎤</button>
@@ -2236,11 +2264,129 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
   'use strict';
   // Endpoint: el mismo Apps Script de la app. La clave de Groq vive en el servidor, nunca aquí.
   var ARIA_URL = (typeof GAS_URL !== 'undefined') ? GAS_URL : '';
-  var vozActiva = true, enviando = false, conectada = false, timerConexion = null;
+  var vozActiva = true, enviando = false, conectada = false, timerConexion = null, guiaTimer = null;
   var $ = function(id){ return document.getElementById(id); };
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   var TTS = window.speechSynthesis;
 
+  // ---------- Catálogo (igual al del Apps Script) ----------
+  var CATALOGO = [
+    {id:'shp-ultimate-repair-400', nombre:'GLISS SHP Ultimate Repair 400ml', tipo:'Shampoo', linea:'Ultimate Repair', tamano:'400 ml'},
+    {id:'kit-ultimate-repair', nombre:'Shampoo Ultimate Repair 400ml + Acondicionador 200ml', tipo:'Kit', linea:'Ultimate Repair', tamano:'400 + 200 ml'},
+    {id:'aco-oil-nutritive-200', nombre:'GLISS ACO Oil Nutritive 200ml', tipo:'Acondicionador', linea:'Oil Nutritive', tamano:'200 ml'},
+    {id:'shp-oil-nutritive-400', nombre:'GLISS SHP Oil Nutritive 400ml', tipo:'Shampoo', linea:'Oil Nutritive', tamano:'400 ml'},
+    {id:'aco-ultimate-repair-200', nombre:'GLISS ACO Ultimate Repair 200ml', tipo:'Acondicionador', linea:'Ultimate Repair', tamano:'200 ml'},
+    {id:'aco-express-ultrepair-200', nombre:'GLISS ACO EXPRESS 200ml UltRepair', tipo:'Acondicionador Express', linea:'Ultimate Repair', tamano:'200 ml'},
+    {id:'trt-ultra-repair-mask-400', nombre:'GLISS TRT Ultra Repair Mask 400ml', tipo:'Mascarilla', linea:'Ultimate Repair', tamano:'400 ml'},
+    {id:'trt-oil-nutritive-mask-400', nombre:'GLISS TRT Oil Nutritive Mask 400ml', tipo:'Mascarilla', linea:'Oil Nutritive', tamano:'400 ml'},
+    {id:'tonic-fullhairwonder-100', nombre:'GLISS TONIC FullHairWonder 100ml', tipo:'Tónico', linea:'FullHairWonder', tamano:'100 ml'},
+    {id:'shp-fullhairwonder-400', nombre:'GLISS SHP FullHairWonder 400ml', tipo:'Shampoo', linea:'FullHairWonder', tamano:'400 ml'},
+    {id:'oleo-oil-elixir-75', nombre:'GLISS OLEO Oil Elixir 75ml', tipo:'Óleo / elixir', linea:'Oil Elixir', tamano:'75 ml'}
+  ];
+
+  // Ilustración de respaldo (cuando aún no hay foto real en productos/<id>.png)
+  function svgProd(p){
+    var col = {'Ultimate Repair':'#b8123e','Oil Nutritive':'#c47a00','FullHairWonder':'#6a3fb5','Oil Elixir':'#1c7c6b'}[p.linea] || '#e1000f';
+    var t = (p.tipo || '').toLowerCase(), corto = (p.linea || '').replace('Ultimate ','Ult. ');
+    var lab = function(x,y,w){ return '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="26" rx="3" fill="#fff" opacity=".93"/><text x="'+(x+w/2)+'" y="'+(y+11)+'" font-size="8" font-weight="800" text-anchor="middle" fill="#241c1c" font-family="Arial">GLISS</text><text x="'+(x+w/2)+'" y="'+(y+21)+'" font-size="5.2" text-anchor="middle" fill="'+col+'" font-family="Arial" font-weight="700">'+corto+'</text>'; };
+    var forma;
+    if(t.indexOf('mascarilla') >= 0){
+      forma = '<rect x="20" y="40" width="60" height="14" rx="3" fill="#241c1c"/><rect x="22" y="54" width="56" height="36" rx="7" fill="'+col+'"/>'+lab(32,58,36);
+    } else if(t.indexOf('tónico') >= 0 || t.indexOf('tonico') >= 0){
+      forma = '<rect x="44" y="12" width="12" height="9" rx="2" fill="#241c1c"/><rect x="54" y="14" width="14" height="5" rx="2" fill="#241c1c"/><rect x="46" y="21" width="8" height="9" fill="#241c1c"/><rect x="34" y="30" width="32" height="60" rx="8" fill="'+col+'"/>'+lab(37,46,26);
+    } else if(t.indexOf('óleo') >= 0 || t.indexOf('oleo') >= 0){
+      forma = '<circle cx="50" cy="14" r="7" fill="#241c1c"/><rect x="46" y="20" width="8" height="12" fill="#241c1c"/><rect x="36" y="32" width="28" height="58" rx="10" fill="'+col+'"/>'+lab(38,50,24);
+    } else if(t.indexOf('kit') >= 0){
+      forma = '<rect x="12" y="14" width="22" height="9" rx="2" fill="#241c1c"/><rect x="8" y="23" width="30" height="66" rx="8" fill="'+col+'"/><rect x="46" y="30" width="18" height="7" rx="2" fill="#241c1c"/><rect x="42" y="37" width="26" height="52" rx="7" fill="'+col+'" opacity=".85"/><rect x="72" y="30" width="18" height="7" rx="2" fill="#241c1c"/><rect x="70" y="37" width="24" height="52" rx="7" fill="'+col+'" opacity=".7"/>';
+    } else {
+      forma = '<rect x="40" y="8" width="20" height="10" rx="2" fill="#241c1c"/><rect x="44" y="18" width="12" height="8" fill="#241c1c"/><rect x="28" y="26" width="44" height="66" rx="11" fill="'+col+'"/>'+lab(33,46,34);
+    }
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'+forma+'</svg>';
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+  function imgProd(p, el){
+    el.src = 'productos/' + p.id + '.png';
+    el.onerror = function(){ el.onerror = null; el.src = svgProd(p); };
+  }
+
+  // ---------- Guías animadas ----------
+  var GUIAS = {
+    ingreso: {titulo:'Cómo ingresar al punto de venta', pasos:[
+      {t:'Paso 1 · Empezar', x:'Elige tu nombre y la ciudad, luego el punto de venta y toca «Comenzar».', p:{h:'Henkel GLISS', it:[['Selecciona asesor',''],['Selecciona ciudad',''],['Punto de venta',''],['Comenzar →','bt foco']]}},
+      {t:'Paso 2 · Ubicación', x:'En «Ingreso al PDV» toca «Actualizar ubicación» para registrar tu GPS.', p:{h:'Ingreso al PDV', it:[['Ubicación GPS: no capturada',''],['Actualizar ubicación','bt foco'],['Foto de ingreso (obligatoria)','ft']]}},
+      {t:'Paso 3 · Foto', x:'Toma o sube la foto de ingreso. Sin foto no puedes continuar.', p:{h:'Ingreso al PDV', it:[['Ubicación capturada ✔',''],['📷 Toma la foto de ingreso','ft foco'],['Guardar Ingreso','bt']]}},
+      {t:'Paso 4 · Guardar', x:'Toca «Guardar Ingreso y desbloquear módulos». Ya puedes registrar ventas y premios.', p:{h:'Ingreso al PDV', it:[['Ubicación capturada ✔',''],['Foto lista ✔','ft'],['Guardar Ingreso y desbloquear módulos','bt foco']]}}
+    ]},
+    venta: {titulo:'Cómo registrar una venta', pasos:[
+      {t:'Paso 1 · Abrir Ventas', x:'Toca el botón central de módulos y elige «Ventas».', p:{h:'Módulos', it:[['Ingreso ✔',''],['Ventas','bt foco'],['Premios',''],['Salida','']]}},
+      {t:'Paso 2 · ¿Hubo venta?', x:'El catálogo estándar tiene 11 SKU. Contesta «¿Se realizó venta?» con Sí.', p:{h:'Ventas', it:[['Catálogo estándar (11 SKU)',''],['¿Se realizó venta?',''],['Sí','bt foco'],['No','']]}},
+      {t:'Paso 3 · Producto', x:'Toca «Agregar producto vendido», elige el producto y escribe cuántas unidades vendiste.', p:{h:'Ventas', it:[['GLISS SHP Ultimate Repair 400ml',''],['Unidades: 3',''],['+ Agregar producto vendido','bt foco']]}},
+      {t:'Si no hubo venta', x:'Elige «No» y el motivo: aún tiene inventario, local cerrado, falta dinero, dueño no está u otro.', p:{h:'Ventas', it:[['No','bt'],['Motivo de no venta','foco'],['Local cerrado','']]}},
+      {t:'Paso 4 · Guardar', x:'Toca «Guardar Ventas». El módulo queda marcado como guardado.', p:{h:'Ventas', it:[['Venta registrada ✔',''],['Guardar Ventas','bt foco']]}}
+    ]},
+    premios: {titulo:'Cómo registrar los premios entregados', pasos:[
+      {t:'Paso 1 · Abrir Premios', x:'Entra al módulo «Premios redimidos» desde el botón de módulos.', p:{h:'Módulos', it:[['Ventas ✔',''],['Premios','bt foco'],['Salida','']]}},
+      {t:'Paso 2 · Cantidades', x:'Escribe cuántos entregaste de cada premio del catálogo, así haya sido cero.', p:{h:'Premios redimidos', it:[['Cepillo con caja: 2','foco'],['Funda con caja: 0',''],['Gorro con caja: 1',''],['Scrunchi: 3','']]}},
+      {t:'Paso 3 · Evidencia', x:'Agrega observaciones y toma una foto del inventario de premios.', p:{h:'Premios redimidos', it:[['Observaciones',''],['📷 Foto del inventario','ft foco']]}},
+      {t:'Paso 4 · Guardar', x:'Toca «Guardar Premios».', p:{h:'Premios redimidos', it:[['Premios registrados ✔',''],['Guardar Premios','bt foco']]}}
+    ]},
+    salida: {titulo:'Cómo salir del punto de venta', pasos:[
+      {t:'Opcional · Voz y competencia', x:'Antes de salir puedes agregar la opinión del consumidor y la evidencia de actividad de la competencia.', p:{h:'Voz y competencia', it:[['+ Agregar opinión','foco'],['¿Actividad de la competencia?',''],['+ Agregar evidencia','']]}},
+      {t:'Paso 1 · Foto de salida', x:'En «Salida del PDV» toma o sube la foto de salida. Es obligatoria.', p:{h:'Salida del PDV', it:[['📷 Foto de salida','ft foco'],['Próxima visita','']]}},
+      {t:'Paso 2 · Cierre', x:'Indica la próxima visita programada y escribe las observaciones finales.', p:{h:'Salida del PDV', it:[['Próxima visita programada','foco'],['Observaciones finales','']]}},
+      {t:'Paso 3 · Finalizar', x:'Toca «Finalizar gestión». Tu visita queda guardada y enviada.', p:{h:'Salida del PDV', it:[['Todo listo ✔',''],['Finalizar gestión','bt foco']]}}
+    ]}
+  };
+  GUIAS.completa = {titulo:'Recorrido completo de una visita', pasos:[].concat(GUIAS.ingreso.pasos, GUIAS.venta.pasos.filter(function(s){ return s.t.indexOf('Si no hubo') < 0; }), GUIAS.premios.pasos, GUIAS.salida.pasos)};
+
+  function detenerGuia(){ if(guiaTimer){ clearInterval(guiaTimer); guiaTimer = null; } }
+
+  function crearGuia(id){
+    var g = GUIAS[id]; if(!g) return;
+    detenerGuia();
+    var i = 0, auto = true;
+    var w = document.createElement('div'); w.className = 'aria-guia';
+    w.innerHTML = '<h4></h4><div class="aria-tel"><div class="aria-tel-h"></div><div class="aria-tel-b"></div></div><div class="aria-cap"></div><div class="aria-ctl"><button type="button" data-a="prev" aria-label="Anterior">◀</button><button type="button" data-a="play" aria-label="Pausar o reproducir">❚❚</button><button type="button" data-a="next" aria-label="Siguiente">▶</button></div><div class="aria-pts"></div>';
+    w.querySelector('h4').textContent = '▶ ' + g.titulo;
+    var pts = w.querySelector('.aria-pts');
+    g.pasos.forEach(function(){ pts.appendChild(document.createElement('i')); });
+    function pintar(narrar){
+      var s = g.pasos[i];
+      w.querySelector('.aria-tel-h').textContent = s.p.h;
+      var b = w.querySelector('.aria-tel-b'); b.style.animation = 'none'; void b.offsetWidth; b.style.animation = '';
+      b.innerHTML = s.p.it.map(function(x){ return '<div class="aria-it '+x[1]+'">'+x[0].replace(/</g,'&lt;')+'</div>'; }).join('');
+      w.querySelector('.aria-cap').innerHTML = '<b></b><span></span>';
+      w.querySelector('.aria-cap b').textContent = s.t + ' (' + (i+1) + '/' + g.pasos.length + ')';
+      w.querySelector('.aria-cap span').textContent = s.x;
+      Array.prototype.forEach.call(pts.children, function(d, k){ d.className = k === i ? 'on' : ''; });
+      if(narrar) hablar(s.t.replace(/^.*·\s*/, '') + '. ' + s.x);
+      $('ariaLog').scrollTop = $('ariaLog').scrollHeight;
+    }
+    function siguiente(){ i = (i + 1) % g.pasos.length; pintar(true); }
+    function iniciar(){ detenerGuia(); guiaTimer = setInterval(function(){ if(auto) siguiente(); }, 6500); }
+    w.addEventListener('click', function(e){
+      var a = e.target.getAttribute && e.target.getAttribute('data-a'); if(!a) return;
+      if(a === 'next'){ siguiente(); }
+      else if(a === 'prev'){ i = (i - 1 + g.pasos.length) % g.pasos.length; pintar(true); }
+      else { auto = !auto; e.target.textContent = auto ? '❚❚' : '▶'; if(!auto && TTS) TTS.cancel(); }
+    });
+    $('ariaLog').appendChild(w);
+    pintar(true); iniciar();
+  }
+
+  function verCatalogo(){
+    var w = document.createElement('div'); w.className = 'aria-cat';
+    CATALOGO.forEach(function(p){
+      var d = document.createElement('div'); d.className = 'it';
+      var im = document.createElement('img'); im.alt = p.nombre; im.loading = 'lazy'; imgProd(p, im); d.appendChild(im);
+      var b = document.createElement('b'); b.textContent = p.nombre; d.appendChild(b);
+      var s = document.createElement('span'); s.textContent = p.tipo + ' · ' + p.tamano; d.appendChild(s);
+      w.appendChild(d);
+    });
+    $('ariaLog').appendChild(w); $('ariaLog').scrollTop = $('ariaLog').scrollHeight;
+  }
+
+  // ---------- Mensajes y voz ----------
   function agregar(texto, quien){
     var d = document.createElement('div');
     d.className = 'aria-m ' + (quien === 'u' ? 'u' : 'a');
@@ -2250,11 +2396,10 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
     return d;
   }
 
-  // Tarjeta de producto con imagen y características (la imagen se oculta si no existe)
   function tarjeta(p){
     var d = document.createElement('div'); d.className = 'aria-prod';
-    var img = document.createElement('img'); img.src = p.imagen; img.alt = p.nombre; img.loading = 'lazy';
-    img.onerror = function(){ img.remove(); };
+    var img = document.createElement('img'); img.alt = p.nombre; img.loading = 'lazy';
+    img.src = p.imagen; img.onerror = function(){ img.onerror = null; img.src = svgProd(p); };
     d.appendChild(img);
     var c = document.createElement('div'); c.className = 'aria-prod-txt';
     var b = document.createElement('b'); b.textContent = p.nombre; c.appendChild(b);
@@ -2275,6 +2420,31 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
     TTS.speak(u);
   }
 
+  // Preguntas que se resuelven en el teléfono (guía animada o catálogo), sin gastar IA
+  function intentoLocal(q){
+    var t = q.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    if(/catalogo|que productos|productos (hay|tiene|son|manejan)|ver productos|imagen(es)? de(l)? producto/.test(t)) return {c:1};
+    if(/recorrido|proceso completo|todo el proceso|paso a paso completo|como se usa|como funciona|como uso la (app|herramienta)/.test(t)) return {g:'completa'};
+    if(/(como|donde).*(ingres|entr|comenz|empez|inici)|ingreso|foto de ingreso|ubicacion|gps/.test(t)) return {g:'ingreso'};
+    if(/venta|vend|unidades/.test(t)) return {g:'venta'};
+    if(/premio|obsequio|regalo|entreg/.test(t)) return {g:'premios'};
+    if(/salida|salir|finaliz|terminar|cerrar la visita|cerrar visita/.test(t)) return {g:'salida'};
+    return null;
+  }
+
+  function mostrarGuia(id, preguntaVisible){
+    if(preguntaVisible) agregar(preguntaVisible, 'u');
+    var m = agregar('Te lo muestro paso a paso 👇', 'a');
+    hablar('Te lo muestro paso a paso.');
+    crearGuia(id);
+  }
+  function mostrarCatalogo(preguntaVisible){
+    if(preguntaVisible) agregar(preguntaVisible, 'u');
+    agregar('Este es el catálogo vigente de la campaña GLISS:', 'a');
+    hablar('Este es el catálogo vigente de la campaña GLISS.');
+    verCatalogo();
+  }
+
   // Al abrir: pantalla "Conectando…" un momento y luego el chat
   function abrirChat(){
     $('ariaPanel').classList.add('open');
@@ -2293,6 +2463,8 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
   async function preguntar(pregunta){
     pregunta = (pregunta || '').trim();
     if(enviando || !pregunta) return;
+    var loc = intentoLocal(pregunta);
+    if(loc){ if(loc.c) mostrarCatalogo(pregunta); else mostrarGuia(loc.g, pregunta); return; }
     if(!ARIA_URL){ agregar('ARIA no está configurada todavía.', 'a'); return; }
     enviando = true;
     agregar(pregunta, 'u');
@@ -2312,10 +2484,14 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
   }
 
   $('ariaBtn').onclick = abrirChat;
-  $('ariaCerrar').onclick = function(){ $('ariaPanel').classList.remove('open'); if(TTS) TTS.cancel(); };
+  $('ariaCerrar').onclick = function(){ $('ariaPanel').classList.remove('open'); detenerGuia(); if(TTS) TTS.cancel(); };
   $('ariaEnviar').onclick = function(){ var t = $('ariaTexto').value; $('ariaTexto').value=''; preguntar(t); };
   $('ariaTexto').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); $('ariaEnviar').click(); } });
-  $('ariaSug').addEventListener('click', function(e){ var q = e.target.getAttribute && e.target.getAttribute('data-q'); if(q) preguntar(q); });
+  $('ariaSug').addEventListener('click', function(e){
+    var b = e.target.closest ? e.target.closest('button') : e.target; if(!b) return;
+    if(b.getAttribute('data-g')) mostrarGuia(b.getAttribute('data-g'), b.textContent.replace(/^▶\s*/, ''));
+    else if(b.getAttribute('data-cat')) mostrarCatalogo('Ver catálogo');
+  });
   $('ariaVoz').onclick = function(){
     vozActiva = !vozActiva;
     $('ariaVoz').textContent = vozActiva ? '🔊' : '🔇';
@@ -2328,7 +2504,7 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
   } else {
     var rec = new SR(); rec.lang = 'es-CO'; rec.interimResults = false; rec.maxAlternatives = 1;
     var escuchando = false;
-    rec.onresult = function(ev){ var t = ev.results[0][0].transcript; $('ariaTexto').value = t; preguntar(t); };
+    rec.onresult = function(ev){ var t = ev.results[0][0].transcript; $('ariaTexto').value = ''; preguntar(t); };
     rec.onerror = function(){ escuchando = false; $('ariaMic').classList.remove('on'); agregar('No te escuché bien. Intenta de nuevo o escribe la pregunta.', 'a'); };
     rec.onend = function(){ escuchando = false; $('ariaMic').classList.remove('on'); };
     $('ariaMic').onclick = function(){
