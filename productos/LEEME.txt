@@ -1,0 +1,16 @@
+Imágenes de producto de ARIA
+============================
+Pon aquí una foto por producto, en PNG, con el nombre exacto de abajo (fondo blanco o transparente, cuadrada, ~600x600).
+Si falta una imagen, ARIA muestra la tarjeta del producto sin foto.
+
+shp-ultimate-repair-400.png
+kit-ultimate-repair.png
+aco-oil-nutritive-200.png
+shp-oil-nutritive-400.png
+aco-ultimate-repair-200.png
+aco-express-ultrepair-200.png
+trt-ultra-repair-mask-400.png
+trt-oil-nutritive-mask-400.png
+tonic-fullhairwonder-100.png
+shp-fullhairwonder-400.png
+oleo-oil-elixir-75.png

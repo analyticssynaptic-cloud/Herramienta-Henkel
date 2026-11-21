@@ -2158,5 +2158,187 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 })();
 </script>
 
+<!-- ============ ARIA · AYUDA CON IA Y VOZ ============ -->
+<style>
+  .aria-btn{position:fixed;left:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 92px);z-index:9000;width:58px;height:58px;border-radius:50%;border:2px solid #00d4ff;padding:0;cursor:pointer;background:#050a10;overflow:hidden;box-shadow:0 0 0 3px rgba(0,212,255,.25),0 8px 22px rgba(0,0,0,.35)}
+  .aria-btn img{width:100%;height:100%;object-fit:cover;display:block}
+  .aria-btn:active{transform:scale(.94)}
+  .aria-panel{position:fixed;inset:0;z-index:9500;display:none;background:rgba(10,8,8,.55);align-items:flex-end;justify-content:center}
+  .aria-panel.open{display:flex}
+  .aria-card{width:100%;max-width:520px;height:min(78vh,620px);background:#fff;color:#241c1c;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding:14px 16px calc(12px + env(safe-area-inset-bottom,0px));box-shadow:0 -10px 40px rgba(0,0,0,.25)}
+  .aria-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .aria-head img{width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #00d4ff}
+  .aria-head .aria-tit{flex:1;line-height:1.2}
+  .aria-head .aria-tit b{font-size:16px;font-weight:800;display:block}
+  .aria-head .aria-tit span{font-size:11.5px;color:#7a6f6f}
+  .aria-head .aria-x{border:0;background:#f1ecec;border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer}
+  .aria-conectando{flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center}
+  .aria-conectando.on{display:flex}
+  .aria-anillo{width:64px;height:64px;border-radius:50%;border:4px solid #d9f7ff;border-top-color:#00a8d6;animation:ariaGira 0.9s linear infinite}
+  @keyframes ariaGira{to{transform:rotate(360deg)}}
+  .aria-conectando p{margin:0;font-size:14.5px;color:#4a4444}
+  .aria-chat{flex:1;display:none;flex-direction:column;min-height:0}
+  .aria-chat.on{display:flex}
+  .aria-log{flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:4px 2px 10px}
+  .aria-m{padding:10px 12px;border-radius:14px;font-size:14.5px;line-height:1.45;max-width:92%;white-space:pre-wrap;word-wrap:break-word}
+  .aria-m.u{align-self:flex-end;background:#e8f9fd;border:1px solid #bde9f5}
+  .aria-m.a{align-self:flex-start;background:#f6f3f3}
+  .aria-prod{align-self:flex-start;display:flex;gap:10px;max-width:92%;background:#fff;border:1px solid #e3dada;border-radius:14px;padding:8px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .aria-prod img{width:84px;height:84px;object-fit:contain;border-radius:10px;background:#faf7f7;flex-shrink:0}
+  .aria-prod-txt{font-size:13px;line-height:1.35;min-width:0}
+  .aria-prod-txt b{display:block;font-size:13.5px}
+  .aria-prod-txt span{display:block;color:#7a6f6f;font-size:11.5px;margin:1px 0 4px}
+  .aria-prod-txt ul{margin:0;padding-left:16px}
+  .aria-sug{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}
+  .aria-sug button{border:1px solid #d9d0d0;background:#fff;border-radius:16px;padding:6px 10px;font-size:12.5px;cursor:pointer;color:#241c1c}
+  .aria-row{display:flex;gap:8px;align-items:center}
+  .aria-row input{flex:1;border:1.5px solid #d9d0d0;border-radius:12px;padding:12px;font-size:16px;min-height:44px;min-width:0}
+  .aria-mic,.aria-voz,.aria-send{border:0;border-radius:12px;min-width:46px;min-height:46px;cursor:pointer;font-weight:800;color:#fff;background:#00a8d6}
+  .aria-voz{background:#4a4444}
+  .aria-mic.on{background:#1a7f37;animation:ariaPulse 1.2s infinite}
+  .aria-mic:disabled{opacity:.4;cursor:not-allowed}
+  @keyframes ariaPulse{0%{box-shadow:0 0 0 0 rgba(26,127,55,.6)}70%{box-shadow:0 0 0 10px rgba(26,127,55,0)}100%{box-shadow:0 0 0 0 rgba(26,127,55,0)}}
+  .aria-nota{font-size:11.5px;color:#7a6f6f;margin-top:6px}
+</style>
+<button class="aria-btn" id="ariaBtn" type="button" aria-label="Abrir ARIA, asistente con voz"><img src="aria.png" alt="ARIA"></button>
+<div class="aria-panel" id="ariaPanel" role="dialog" aria-modal="true" aria-label="ARIA asistente">
+  <div class="aria-card">
+    <div class="aria-head">
+      <img src="aria.png" alt="">
+      <div class="aria-tit"><b>ARIA</b><span>Asistente de Henkel GLISS</span></div>
+      <button class="aria-x" id="ariaCerrar" type="button">Cerrar</button>
+    </div>
+    <div class="aria-conectando on" id="ariaConectando">
+      <div class="aria-anillo"></div>
+      <p>Conectando con ARIA…</p>
+    </div>
+    <div class="aria-chat" id="ariaChat">
+      <div class="aria-log" id="ariaLog">
+        <div class="aria-m a">Hola, soy ARIA. Te ayudo con la herramienta Henkel GLISS, la campaña y nuestros productos GLISS. Escribe o habla tu pregunta.</div>
+      </div>
+      <div class="aria-sug" id="ariaSug">
+        <button type="button" data-q="¿Cómo registro una visita?">¿Cómo registro una visita?</button>
+        <button type="button" data-q="¿Qué productos GLISS hay en la campaña?">Productos GLISS</button>
+        <button type="button" data-q="¿Qué premios hay?">Premios</button>
+      </div>
+      <div class="aria-row">
+        <button class="aria-mic" id="ariaMic" type="button" aria-label="Hablar" title="Hablar">🎤</button>
+        <input id="ariaTexto" type="text" placeholder="Escribe tu pregunta…" maxlength="400" autocomplete="off">
+        <button class="aria-send" id="ariaEnviar" type="button" aria-label="Enviar">➤</button>
+        <button class="aria-voz" id="ariaVoz" type="button" aria-label="Activar o silenciar voz" title="Voz de respuesta">🔊</button>
+      </div>
+      <div class="aria-nota" id="ariaNota">Solo respondo sobre la herramienta, la campaña y los productos GLISS.</div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  // Endpoint: el mismo Apps Script de la app. La clave de Groq vive en el servidor, nunca aquí.
+  var ARIA_URL = (typeof GAS_URL !== 'undefined') ? GAS_URL : '';
+  var vozActiva = true, enviando = false, conectada = false, timerConexion = null;
+  var $ = function(id){ return document.getElementById(id); };
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var TTS = window.speechSynthesis;
+
+  function agregar(texto, quien){
+    var d = document.createElement('div');
+    d.className = 'aria-m ' + (quien === 'u' ? 'u' : 'a');
+    d.textContent = texto;
+    $('ariaLog').appendChild(d);
+    $('ariaLog').scrollTop = $('ariaLog').scrollHeight;
+    return d;
+  }
+
+  // Tarjeta de producto con imagen y características (la imagen se oculta si no existe)
+  function tarjeta(p){
+    var d = document.createElement('div'); d.className = 'aria-prod';
+    var img = document.createElement('img'); img.src = p.imagen; img.alt = p.nombre; img.loading = 'lazy';
+    img.onerror = function(){ img.remove(); };
+    d.appendChild(img);
+    var c = document.createElement('div'); c.className = 'aria-prod-txt';
+    var b = document.createElement('b'); b.textContent = p.nombre; c.appendChild(b);
+    var s = document.createElement('span'); s.textContent = [p.tipo, p.linea, p.tamano].filter(Boolean).join(' · '); c.appendChild(s);
+    var ul = document.createElement('ul');
+    (p.car || []).forEach(function(x){ var li = document.createElement('li'); li.textContent = x; ul.appendChild(li); });
+    c.appendChild(ul); d.appendChild(c);
+    $('ariaLog').appendChild(d); $('ariaLog').scrollTop = $('ariaLog').scrollHeight;
+  }
+
+  function hablar(texto){
+    if(!vozActiva || !TTS || !texto) return;
+    TTS.cancel();
+    var u = new SpeechSynthesisUtterance(texto.replace(/[*_#`]/g, ''));
+    u.lang = 'es-CO'; u.rate = 1.0; u.pitch = 1.0;
+    var v = TTS.getVoices().find(function(x){ return /^es/i.test(x.lang); });
+    if(v) u.voice = v;
+    TTS.speak(u);
+  }
+
+  // Al abrir: pantalla "Conectando…" un momento y luego el chat
+  function abrirChat(){
+    $('ariaPanel').classList.add('open');
+    if(conectada){ mostrarChat(); return; }
+    $('ariaConectando').classList.add('on');
+    $('ariaChat').classList.remove('on');
+    clearTimeout(timerConexion);
+    timerConexion = setTimeout(function(){ conectada = true; mostrarChat(); }, 1600);
+  }
+  function mostrarChat(){
+    $('ariaConectando').classList.remove('on');
+    $('ariaChat').classList.add('on');
+    setTimeout(function(){ $('ariaTexto').focus(); }, 150);
+  }
+
+  async function preguntar(pregunta){
+    pregunta = (pregunta || '').trim();
+    if(enviando || !pregunta) return;
+    if(!ARIA_URL){ agregar('ARIA no está configurada todavía.', 'a'); return; }
+    enviando = true;
+    agregar(pregunta, 'u');
+    var pensando = agregar('Pensando…', 'a');
+    try{
+      // text/plain evita el preflight CORS, igual que el resto de la app
+      var res = await fetch(ARIA_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({accion:'ayuda', pregunta: pregunta.slice(0,400)}), redirect:'follow'});
+      var data = await res.json();
+      var txt = data && data.respuesta ? data.respuesta : (data && data.error ? data.error : 'No pude responder en este momento.');
+      pensando.textContent = txt;
+      if(data && data.productos && data.productos.length){ data.productos.forEach(tarjeta); }
+      hablar(txt);
+    }catch(e){
+      pensando.textContent = 'Sin conexión con ARIA. Intenta de nuevo cuando tengas señal.';
+    }finally{ enviando = false; }
+  }
+
+  $('ariaBtn').onclick = abrirChat;
+  $('ariaCerrar').onclick = function(){ $('ariaPanel').classList.remove('open'); if(TTS) TTS.cancel(); };
+  $('ariaEnviar').onclick = function(){ var t = $('ariaTexto').value; $('ariaTexto').value=''; preguntar(t); };
+  $('ariaTexto').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); $('ariaEnviar').click(); } });
+  $('ariaSug').addEventListener('click', function(e){ var q = e.target.getAttribute && e.target.getAttribute('data-q'); if(q) preguntar(q); });
+  $('ariaVoz').onclick = function(){
+    vozActiva = !vozActiva;
+    $('ariaVoz').textContent = vozActiva ? '🔊' : '🔇';
+    if(!vozActiva && TTS) TTS.cancel();
+  };
+
+  if(!SR){
+    $('ariaMic').disabled = true;
+    $('ariaNota').textContent = 'El micrófono no está disponible en este navegador. Usa Chrome en Android o escribe la pregunta.';
+  } else {
+    var rec = new SR(); rec.lang = 'es-CO'; rec.interimResults = false; rec.maxAlternatives = 1;
+    var escuchando = false;
+    rec.onresult = function(ev){ var t = ev.results[0][0].transcript; $('ariaTexto').value = t; preguntar(t); };
+    rec.onerror = function(){ escuchando = false; $('ariaMic').classList.remove('on'); agregar('No te escuché bien. Intenta de nuevo o escribe la pregunta.', 'a'); };
+    rec.onend = function(){ escuchando = false; $('ariaMic').classList.remove('on'); };
+    $('ariaMic').onclick = function(){
+      if(escuchando){ rec.stop(); return; }
+      if(TTS) TTS.cancel();
+      try{ rec.start(); escuchando = true; $('ariaMic').classList.add('on'); }catch(e){}
+    };
+  }
+})();
+</script>
+
 </body>
 </html>
